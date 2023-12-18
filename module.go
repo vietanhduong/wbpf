@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -15,7 +16,8 @@ var ErrProgNotFound = fmt.Errorf("prog not found")
 type Module struct {
 	collection *ebpf.Collection
 
-	kprobes map[string]link.Link
+	kprobes  map[string]link.Link
+	ringbufs map[string]*RingBuf
 }
 
 func NewModule(opts ...ModuleOption) (*Module, error) {
@@ -49,7 +51,6 @@ func (m *Module) GetTable(name string) (*Table, error) {
 }
 
 func (m *Module) AttackKprobe(sysname, prog string) error {
-	sysname = GetSyscallName(sysname)
 	if _, ok := m.kprobes[sysname]; ok {
 		return nil
 	}
@@ -67,11 +68,50 @@ func (m *Module) AttackKprobe(sysname, prog string) error {
 }
 
 func (m *Module) DetachKprobe(sysname string) {
-	sysname = GetSyscallName(sysname)
 	if kprobe, ok := m.kprobes[sysname]; ok {
 		kprobe.Close()
 		delete(m.kprobes, sysname)
 	}
+
+	sysname = FixSyscallName(sysname)
+	if kprobe, ok := m.kprobes[sysname]; ok {
+		kprobe.Close()
+		delete(m.kprobes, sysname)
+	}
+}
+
+func (m *Module) OpenRingBuffer(name string, opts *RingBufOptions) error {
+	if _, ok := m.ringbufs[name]; ok {
+		return nil
+	}
+
+	tbl, err := m.GetTable(name)
+	if err != nil {
+		return fmt.Errorf("get table: %w", err)
+	}
+
+	buf, err := NewRingBuf(tbl, opts)
+	if err != nil {
+		return fmt.Errorf("new ringbuf: %w", err)
+	}
+
+	m.ringbufs[name] = buf
+	return nil
+}
+
+func (m *Module) CloseRingBuffer(name string) {
+	if buf, ok := m.ringbufs[name]; ok {
+		buf.Close()
+		delete(m.ringbufs, name)
+	}
+}
+
+func (m *Module) PollRingBuffer(name string, timeout time.Duration) int {
+	if buf, ok := m.ringbufs[name]; ok {
+		count, _ := buf.Poll(timeout)
+		return count
+	}
+	return -1
 }
 
 func (m *Module) Close() {
@@ -83,9 +123,12 @@ func (m *Module) Close() {
 		defer m.collection.Close()
 	}
 	// Detach Kprobes
-	for name, l := range m.kprobes {
-		l.Close()
-		delete(m.kprobes, name)
+	for name := range m.kprobes {
+		m.DetachKprobe(name)
+	}
+	// Close Ring Buffers
+	for name := range m.ringbufs {
+		m.CloseRingBuffer(name)
 	}
 }
 
@@ -97,13 +140,15 @@ func newModule(opts *moduleOptions) (*Module, error) {
 		}
 		opts.content = buf
 	}
+
 	spec, err := ebpf.LoadCollectionSpecFromReader(bytes.NewReader(opts.content))
 	if err != nil {
 		return nil, fmt.Errorf("ebpf load collection spec: %w", err)
 	}
 
 	mod := &Module{
-		kprobes: make(map[string]link.Link),
+		kprobes:  make(map[string]link.Link),
+		ringbufs: make(map[string]*RingBuf),
 	}
 	if mod.collection, err = ebpf.NewCollection(spec); err != nil {
 		return nil, fmt.Errorf("ebpf new collection: %w", err)
