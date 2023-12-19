@@ -51,21 +51,8 @@ func (m *Module) GetTable(name string) (*Table, error) {
 	return &Table{Map: tbl, info: info, mod: m}, nil
 }
 
-func (m *Module) AttackKprobe(sysname, prog string) error {
-	if _, ok := m.kprobes[sysname]; ok {
-		return nil
-	}
-
-	p, ok := m.collection.Programs[prog]
-	if !ok || p == nil {
-		return ErrProgNotFound
-	}
-	kprobe, err := link.Kprobe(sysname, p, nil)
-	if err != nil {
-		return fmt.Errorf("link kprobe (%s): %w", sysname, err)
-	}
-	m.kprobes[sysname] = kprobe
-	return nil
+func (m *Module) AttachKprobe(sysname, prog string) error {
+	return m.attachKprobe(sysname, prog, false)
 }
 
 func (m *Module) DetachKprobe(sysname string) {
@@ -79,6 +66,38 @@ func (m *Module) DetachKprobe(sysname string) {
 		kprobe.Close()
 	}
 	delete(m.kprobes, sysname)
+}
+
+func (m *Module) AttachKretprobe(sysname, prog string) error {
+	return m.attachKprobe(sysname, prog, true)
+}
+
+func (m *Module) attachKprobe(sysname, prog string, ret bool) error {
+	if _, ok := m.kprobes[sysname]; ok {
+		return nil
+	}
+
+	p, ok := m.collection.Programs[prog]
+	if !ok || p == nil {
+		return ErrProgNotFound
+	}
+
+	var fn func(symbol string, prog *ebpf.Program, opts *link.KprobeOptions) (link.Link, error)
+	var fnname string
+	if ret {
+		fn = link.Kretprobe
+		fnname = "kretprobe"
+	} else {
+		fn = link.Kprobe
+		fnname = "kprobe"
+	}
+
+	kprobe, err := fn(sysname, p, nil)
+	if err != nil {
+		return fmt.Errorf("link %s (%s): %w", fnname, sysname, err)
+	}
+	m.kprobes[sysname] = kprobe
+	return nil
 }
 
 func (m *Module) OpenPerfBuffer(name string, opts *PerfBufOptions) error {
