@@ -22,6 +22,7 @@ type Module struct {
 	perfbufs    map[string]*PerfBuf
 	tracepoints map[string]link.Link
 	rawtps      map[string]link.Link
+	perfEvents  map[string]*PerfEvent
 }
 
 func NewModule(opts ...ModuleOption) (*Module, error) {
@@ -86,9 +87,9 @@ func (m *Module) AttachTracepoint(name, prog string) error {
 		return fmt.Errorf("invalid tracepoint name, expected %q but got %q", "<group>:<name>", name)
 	}
 
-	p, ok := m.collection.Programs[prog]
-	if !ok || p == nil {
-		return ErrProgNotFound
+	p, err := m.GetProg(prog)
+	if err != nil {
+		return err
 	}
 
 	tp, err := link.Tracepoint(parts[0], parts[1], p, nil)
@@ -113,9 +114,9 @@ func (m *Module) AttachRawTracepoint(name, prog string) error {
 		return nil
 	}
 
-	p, ok := m.collection.Programs[prog]
-	if !ok || p == nil {
-		return ErrProgNotFound
+	p, err := m.GetProg(prog)
+	if err != nil {
+		return err
 	}
 
 	rawtp, err := link.AttachRawTracepoint(link.RawTracepointOptions{Name: name, Program: p})
@@ -133,14 +134,37 @@ func (m *Module) DetachRawTracepoint(name string) {
 	delete(m.rawtps, name)
 }
 
+func (m *Module) AttachPerfEvent(prog string, opts PerfEventOptions) error {
+	if _, ok := m.perfEvents[prog]; ok {
+		return nil
+	}
+	p, err := m.GetProg(prog)
+	if err != nil {
+		return err
+	}
+	event, err := NewPerfEvent(p, opts)
+	if err != nil {
+		return fmt.Errorf("new perf event: %w", err)
+	}
+	m.perfEvents[prog] = event
+	return nil
+}
+
+func (m *Module) DetachPerfEvent(prog string) {
+	if event := m.perfEvents[prog]; event != nil {
+		event.Close()
+	}
+	delete(m.perfEvents, prog)
+}
+
 func (m *Module) attachKprobe(sysname, prog string, ret bool) error {
 	if _, ok := m.kprobes[sysname]; ok {
 		return nil
 	}
 
-	p, ok := m.collection.Programs[prog]
-	if !ok || p == nil {
-		return ErrProgNotFound
+	p, err := m.GetProg(prog)
+	if err != nil {
+		return err
 	}
 
 	var fn func(symbol string, prog *ebpf.Program, opts *link.KprobeOptions) (link.Link, error)
@@ -227,6 +251,14 @@ func (m *Module) PollRingBuffer(name string, timeout time.Duration) int {
 	return -1
 }
 
+func (m *Module) GetProg(name string) (*ebpf.Program, error) {
+	p, ok := m.collection.Programs[name]
+	if !ok || p == nil {
+		return nil, ErrProgNotFound
+	}
+	return p, nil
+}
+
 func (m *Module) Close() {
 	if m == nil {
 		return
@@ -255,6 +287,10 @@ func (m *Module) Close() {
 	for name := range m.tracepoints {
 		m.DetachTracepoint(name)
 	}
+	// Detach PerfEvents
+	for name := range m.perfEvents {
+		m.DetachPerfEvent(name)
+	}
 }
 
 func newModule(opts *moduleOptions) (*Module, error) {
@@ -277,6 +313,7 @@ func newModule(opts *moduleOptions) (*Module, error) {
 		perfbufs:    make(map[string]*PerfBuf),
 		tracepoints: make(map[string]link.Link),
 		rawtps:      make(map[string]link.Link),
+		perfEvents:  make(map[string]*PerfEvent),
 	}
 	if mod.collection, err = ebpf.NewCollection(spec); err != nil {
 		return nil, fmt.Errorf("ebpf new collection: %w", err)
