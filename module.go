@@ -18,6 +18,7 @@ type Module struct {
 
 	kprobes  map[string]link.Link
 	ringbufs map[string]*RingBuf
+	perfbufs map[string]*PerfBuf
 }
 
 func NewModule(opts ...ModuleOption) (*Module, error) {
@@ -68,16 +69,48 @@ func (m *Module) AttackKprobe(sysname, prog string) error {
 }
 
 func (m *Module) DetachKprobe(sysname string) {
-	if kprobe, ok := m.kprobes[sysname]; ok {
+	if kprobe := m.kprobes[sysname]; kprobe != nil {
 		kprobe.Close()
-		delete(m.kprobes, sysname)
 	}
+	delete(m.kprobes, sysname)
 
 	sysname = FixSyscallName(sysname)
-	if kprobe, ok := m.kprobes[sysname]; ok {
+	if kprobe := m.kprobes[sysname]; kprobe != nil {
 		kprobe.Close()
-		delete(m.kprobes, sysname)
 	}
+	delete(m.kprobes, sysname)
+}
+
+func (m *Module) OpenPerfBuffer(name string, opts *PerfBufOptions) error {
+	if _, ok := m.perfbufs[name]; ok {
+		return nil
+	}
+	tbl, err := m.GetTable(name)
+	if err != nil {
+		return fmt.Errorf("get table: %w", err)
+	}
+
+	buf, err := NewPerfBuffer(tbl, opts)
+	if err != nil {
+		return fmt.Errorf("new perf buffer: %w", err)
+	}
+	m.perfbufs[name] = buf
+	return nil
+}
+
+func (m *Module) ClosePerfBuffer(name string) {
+	if buf := m.perfbufs[name]; buf != nil {
+		buf.Close()
+	}
+	delete(m.perfbufs, name)
+}
+
+func (m *Module) PollPerfBuffer(name string, timeout time.Duration) int {
+	if buf := m.perfbufs[name]; buf != nil {
+		count, _ := buf.Poll(timeout)
+		return count
+	}
+	return -1
 }
 
 func (m *Module) OpenRingBuffer(name string, opts *RingBufOptions) error {
@@ -100,10 +133,10 @@ func (m *Module) OpenRingBuffer(name string, opts *RingBufOptions) error {
 }
 
 func (m *Module) CloseRingBuffer(name string) {
-	if buf, ok := m.ringbufs[name]; ok {
+	if buf := m.ringbufs[name]; buf != nil {
 		buf.Close()
-		delete(m.ringbufs, name)
 	}
+	delete(m.ringbufs, name)
 }
 
 func (m *Module) PollRingBuffer(name string, timeout time.Duration) int {
@@ -130,6 +163,10 @@ func (m *Module) Close() {
 	for name := range m.ringbufs {
 		m.CloseRingBuffer(name)
 	}
+	// Close Perf Buffers
+	for name := range m.perfbufs {
+		m.ClosePerfBuffer(name)
+	}
 }
 
 func newModule(opts *moduleOptions) (*Module, error) {
@@ -149,6 +186,7 @@ func newModule(opts *moduleOptions) (*Module, error) {
 	mod := &Module{
 		kprobes:  make(map[string]link.Link),
 		ringbufs: make(map[string]*RingBuf),
+		perfbufs: make(map[string]*PerfBuf),
 	}
 	if mod.collection, err = ebpf.NewCollection(spec); err != nil {
 		return nil, fmt.Errorf("ebpf new collection: %w", err)

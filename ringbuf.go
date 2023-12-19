@@ -36,16 +36,12 @@ func NewRingBuf(table *Table, opts *RingBufOptions) (*RingBuf, error) {
 		opts = &RingBufOptions{}
 	}
 
-	if opts.Callback == nil {
-		opts.Callback = func(raw []byte) {}
-	}
-
 	this := &RingBuf{
 		Reader: reader,
 		table:  table,
 	}
 
-	if opts.Async {
+	if opts.Async && opts.Callback != nil {
 		this.callback = func(raw []byte) { go opts.Callback(raw) }
 	} else {
 		this.callback = opts.Callback
@@ -75,7 +71,9 @@ func (rb *RingBuf) Poll(timeout time.Duration) (int, error) {
 			}
 			return -1, fmt.Errorf("ringbuf read: %w", err)
 		}
-		rb.callback(record.RawSample)
+		if rb.callback != nil {
+			rb.callback(record.RawSample)
+		}
 		// reset cap and data. ref: https://github.com/cilium/ebpf/blob/14adc787359b2a2f948773ed286cfee2e7b3bffe/ringbuf/reader.go#L92
 		record.RawSample = make([]byte, 0)
 		count++
