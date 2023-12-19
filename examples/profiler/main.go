@@ -21,16 +21,24 @@ import (
 /*
 struct stack_t {
   __u32 pid;
-  __u64 user_stack_id;
-  __u64 kernel_stack_id;
+  __s64 user_stack_id;
+  __s64 kernel_stack_id;
 };
 */
 
 type stack struct {
 	pid         uint32
 	_           [4]byte // padding
-	userstack   uint64
-	kernelstack uint64
+	userstack   int64
+	kernelstack int64
+}
+
+func (st *stack) String() string {
+	if st == nil {
+		return ""
+	}
+
+	return fmt.Sprintf("pid=%d user=0x%08x kernel=0x%08x", st.pid, st.userstack, st.kernelstack)
 }
 
 //go:embed profiler.bpf.o
@@ -102,7 +110,7 @@ func main() {
 			ret += buildstack(stacktraces.GetStackAddr(st.kernelstack, false), kresolver, "[k] ")
 		}
 		if ret != "" {
-			log.Info(ret)
+			log.Infof(ret)
 		}
 	}
 

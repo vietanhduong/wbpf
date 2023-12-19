@@ -10,9 +10,12 @@ const MAX_STACK_DEPTH = 127
 
 type stacktrace struct{ insptr [MAX_STACK_DEPTH]uint64 }
 
-func (t *Table) GetStackAddr(stackid uint64, clear bool) []uint64 {
+func (t *Table) GetStackAddr(stackid int64, clear bool) []uint64 {
 	if t.TableType() != ebpf.StackTrace {
 		log.Tracef("Incorrect table type (expect: %s, got: %s)", ebpf.StackTrace, t.info.Type)
+		return nil
+	}
+	if stackid < 0 {
 		return nil
 	}
 

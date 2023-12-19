@@ -5,10 +5,13 @@
 #define MAX_STACK_DEPTH 127
 #define RINGBUF_MAX_ENTRIES 16777216
 
+#define KERNEL_STACKID_FLAGS (0 | BPF_F_FAST_STACK_CMP)
+#define USER_STACKID_FLAGS (0 | BPF_F_FAST_STACK_CMP | BPF_F_USER_STACK)
+
 struct stack_t {
   __u32 pid;
-  __u64 user_stack_id;
-  __u64 kernel_stack_id;
+  __s64 user_stack;
+  __s64 kernel_stack;
 };
 
 struct {
@@ -31,8 +34,8 @@ int do_perf_event(struct bpf_perf_event_data *ctx) {
 
   struct stack_t key = {};
   key.pid = tgid;
-  key.kernel_stack_id = bpf_get_stackid(ctx, &stack_traces, 0);
-  key.user_stack_id = bpf_get_stackid(ctx, &stack_traces, BPF_F_USER_STACK);
+  key.kernel_stack = bpf_get_stackid(ctx, &stack_traces, KERNEL_STACKID_FLAGS);
+  key.user_stack = bpf_get_stackid(ctx, &stack_traces, USER_STACKID_FLAGS);
   bpf_ringbuf_output(&histogram, &key, sizeof(key), 0);
   return 0;
 }
