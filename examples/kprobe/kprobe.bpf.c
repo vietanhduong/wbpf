@@ -15,8 +15,8 @@ struct {
 #define OP_PID_EXEC 2
 
 struct pid_event {
-  __u32 op;
   __u32 pid;
+  __u32 op;
 };
 struct pid_event pe__;
 
