@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/cilium/ebpf"
@@ -16,9 +17,11 @@ var ErrProgNotFound = fmt.Errorf("prog not found")
 type Module struct {
 	collection *ebpf.Collection
 
-	kprobes  map[string]link.Link
-	ringbufs map[string]*RingBuf
-	perfbufs map[string]*PerfBuf
+	kprobes     map[string]link.Link
+	ringbufs    map[string]*RingBuf
+	perfbufs    map[string]*PerfBuf
+	tracepoints map[string]link.Link
+	rawtps      map[string]link.Link
 }
 
 func NewModule(opts ...ModuleOption) (*Module, error) {
@@ -70,6 +73,64 @@ func (m *Module) DetachKprobe(sysname string) {
 
 func (m *Module) AttachKretprobe(sysname, prog string) error {
 	return m.attachKprobe(sysname, prog, true)
+}
+
+// AttachTracepoint attaches a tracepoint to the input prog.
+// The input name must be in the format 'group:name'
+func (m *Module) AttachTracepoint(name, prog string) error {
+	if _, ok := m.tracepoints[name]; ok {
+		return nil
+	}
+	parts := strings.SplitN(name, ":", 2)
+	if len(parts) < 2 {
+		return fmt.Errorf("invalid tracepoint name, expected %q but got %q", "<group>:<name>", name)
+	}
+
+	p, ok := m.collection.Programs[prog]
+	if !ok || p == nil {
+		return ErrProgNotFound
+	}
+
+	tp, err := link.Tracepoint(parts[0], parts[1], p, nil)
+	if err != nil {
+		return fmt.Errorf("link tracepoint: %w", err)
+	}
+	m.tracepoints[name] = tp
+	return nil
+}
+
+func (m *Module) DetachTracepoint(name string) {
+	if tp := m.tracepoints[name]; tp != nil {
+		tp.Close()
+	}
+	delete(m.tracepoints, name)
+}
+
+// AttachRawTracepoint attaches a raw tracepoint to the input prog.
+// The input name is in the format 'name', there is no group.
+func (m *Module) AttachRawTracepoint(name, prog string) error {
+	if _, ok := m.rawtps[name]; ok {
+		return nil
+	}
+
+	p, ok := m.collection.Programs[prog]
+	if !ok || p == nil {
+		return ErrProgNotFound
+	}
+
+	rawtp, err := link.AttachRawTracepoint(link.RawTracepointOptions{Name: name, Program: p})
+	if err != nil {
+		return fmt.Errorf("link attach raw tracepoint %s: %w", name, err)
+	}
+	m.rawtps[name] = rawtp
+	return nil
+}
+
+func (m *Module) DetachRawTracepoint(name string) {
+	if rawtp := m.rawtps[name]; rawtp != nil {
+		rawtp.Close()
+	}
+	delete(m.rawtps, name)
 }
 
 func (m *Module) attachKprobe(sysname, prog string, ret bool) error {
@@ -186,6 +247,14 @@ func (m *Module) Close() {
 	for name := range m.perfbufs {
 		m.ClosePerfBuffer(name)
 	}
+	// Detach Raw Tracepoints
+	for name := range m.rawtps {
+		m.DetachRawTracepoint(name)
+	}
+	// Detach Tracepoints
+	for name := range m.tracepoints {
+		m.DetachTracepoint(name)
+	}
 }
 
 func newModule(opts *moduleOptions) (*Module, error) {
@@ -203,9 +272,11 @@ func newModule(opts *moduleOptions) (*Module, error) {
 	}
 
 	mod := &Module{
-		kprobes:  make(map[string]link.Link),
-		ringbufs: make(map[string]*RingBuf),
-		perfbufs: make(map[string]*PerfBuf),
+		kprobes:     make(map[string]link.Link),
+		ringbufs:    make(map[string]*RingBuf),
+		perfbufs:    make(map[string]*PerfBuf),
+		tracepoints: make(map[string]link.Link),
+		rawtps:      make(map[string]link.Link),
 	}
 	if mod.collection, err = ebpf.NewCollection(spec); err != nil {
 		return nil, fmt.Errorf("ebpf new collection: %w", err)
