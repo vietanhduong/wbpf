@@ -1,7 +1,6 @@
 package wbpf
 
 import (
-	"fmt"
 	"unsafe"
 
 	"github.com/cilium/ebpf"
@@ -11,19 +10,17 @@ const MAX_STACK_DEPTH = 127
 
 type stacktrace struct{ insptr [MAX_STACK_DEPTH]uint64 }
 
-func (t *Table) GetStackAddr(stackId int, clear bool) ([]uint64, error) {
+func (t *Table) GetStackAddr(stackid uint64, clear bool) []uint64 {
 	if t.TableType() != ebpf.StackTrace {
-		return nil, ErrIncorrectTableType
+		log.Tracef("Incorrect table type (expect: %s, got: %s)", ebpf.StackTrace, t.info.Type)
+		return nil
 	}
 
-	if stackId < 0 {
-		return nil, nil
-	}
-
+	id := uint32(stackid)
 	var b []byte
-	var err error
-	if b, err = t.LookupBytes(uint32(stackId)); len(b) == 0 {
-		return nil, fmt.Errorf("lookup key 0x%08x: %w", stackId, err)
+	if b, _ = t.LookupBytes(id); len(b) == 0 {
+		log.Tracef("Failed to lookup key 0x%08x", stackid)
+		return nil
 	}
 
 	stack := (*stacktrace)(unsafe.Pointer(&b[0]))
@@ -32,9 +29,10 @@ func (t *Table) GetStackAddr(stackId int, clear bool) ([]uint64, error) {
 		addrs = append(addrs, stack.insptr[i])
 	}
 	if clear {
-		if err := t.Delete(uint32(stackId)); err != nil {
-			return nil, fmt.Errorf("delete key 0x%08x: %w", stackId, err)
+		if err := t.Delete(id); err != nil {
+			log.Tracef("Failed to delete key 0x%08x: %v", stackid, err)
+			return nil
 		}
 	}
-	return addrs, nil
+	return addrs
 }

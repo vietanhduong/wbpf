@@ -30,5 +30,9 @@ ifeq ($(BUILD_BPF),1)
 		-I ./headers/vmlinux \
 		-I ./headers/libbpf
 endif
-	CGO_ENABLED=0 go build -o ./$(TARGET)/$(TARGET) ./$(TARGET)
+
+	if [ -n "$$(find ./$(TARGET) -type f -name "*.go")" ]; then \
+		CGO_ENABLED=0 go build -o ./$(TARGET)/$(TARGET) ./$(TARGET); \
+	fi;
+
 	

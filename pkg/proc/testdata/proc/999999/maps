@@ -1,0 +1,40 @@
+5574043c3000-5574043c5000 r--p 00000000 08:01 3514815                    /root/server_cc
+5574043c5000-5574043c8000 r-xp 00002000 08:01 3514815                    /root/server_cc
+5574043c8000-5574043c9000 r--p 00005000 08:01 3514815                    /root/server_cc
+5574043ca000-5574043cb000 r--p 00006000 08:01 3514815                    /root/server_cc
+5574043cb000-5574043cc000 rw-p 00007000 08:01 3514815                    /root/server_cc
+557404f1b000-557404f3c000 rw-p 00000000 00:00 0                          [heap]
+7f500dc23000-7f500dc27000 rw-p 00000000 00:00 0 
+7f500dc27000-7f500dc49000 r--p 00000000 08:01 76188                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f500dc49000-7f500ddc1000 r-xp 00022000 08:01 76188                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f500ddc1000-7f500de0f000 r--p 0019a000 08:01 76188                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f500de0f000-7f500de13000 r--p 001e7000 08:01 76188                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f500de13000-7f500de15000 rw-p 001eb000 08:01 76188                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f500de15000-7f500de19000 rw-p 00000000 00:00 0 
+7f500de19000-7f500de1c000 r--p 00000000 08:01 72825                      /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+7f500de1c000-7f500de2e000 r-xp 00003000 08:01 72825                      /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+7f500de2e000-7f500de32000 r--p 00015000 08:01 72825                      /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+7f500de32000-7f500de33000 r--p 00018000 08:01 72825                      /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+7f500de33000-7f500de34000 rw-p 00019000 08:01 72825                      /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+7f500de34000-7f500de41000 r--p 00000000 08:01 76190                      /usr/lib/x86_64-linux-gnu/libm-2.31.so
+7f500de41000-7f500dee8000 r-xp 0000d000 08:01 76190                      /usr/lib/x86_64-linux-gnu/libm-2.31.so
+7f500dee8000-7f500df81000 r--p 000b4000 08:01 76190                      /usr/lib/x86_64-linux-gnu/libm-2.31.so
+7f500df81000-7f500df82000 r--p 0014c000 08:01 76190                      /usr/lib/x86_64-linux-gnu/libm-2.31.so
+7f500df82000-7f500df83000 rw-p 0014d000 08:01 76190                      /usr/lib/x86_64-linux-gnu/libm-2.31.so
+7f500df83000-7f500e019000 r--p 00000000 08:01 66239                      /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.28
+7f500e019000-7f500e10a000 r-xp 00096000 08:01 66239                      /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.28
+7f500e10a000-7f500e153000 r--p 00187000 08:01 66239                      /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.28
+7f500e153000-7f500e154000 ---p 001d0000 08:01 66239                      /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.28
+7f500e154000-7f500e15f000 r--p 001d0000 08:01 66239                      /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.28
+7f500e15f000-7f500e162000 rw-p 001db000 08:01 66239                      /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.28
+7f500e162000-7f500e167000 rw-p 00000000 00:00 0 
+7f500e175000-7f500e176000 r--p 00000000 08:01 76184                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f500e176000-7f500e199000 r-xp 00001000 08:01 76184                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f500e199000-7f500e1a1000 r--p 00024000 08:01 76184                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f500e1a2000-7f500e1a3000 r--p 0002c000 08:01 76184                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f500e1a3000-7f500e1a4000 rw-p 0002d000 08:01 76184                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f500e1a4000-7f500e1a5000 rw-p 00000000 00:00 0 
+7ffd55b0b000-7ffd55b2c000 rw-p 00000000 00:00 0                          [stack]
+7ffd55b45000-7ffd55b49000 r--p 00000000 00:00 0                          [vvar]
+7ffd55b49000-7ffd55b4b000 r-xp 00000000 00:00 0                          [vdso]
+ffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0                  [vsyscall]

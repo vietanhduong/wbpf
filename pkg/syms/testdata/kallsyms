@@ -1,0 +1,76 @@
+0000000000000000 A fixed_percpu_data
+0000000000000000 A __per_cpu_start
+0000000000001000 A cpu_debug_store
+0000000000002000 A irq_stack_backing_store
+0000000000006000 A cpu_tss_rw
+000000000000b000 A gdt_page
+000000000002f958 A centrino_cpu
+000000000002f960 A centrino_model
+000000000002f980 A cpuidle_dev
+000000000002fca0 A cpuidle_devices
+000000000002fcc0 A ladder_devices
+000000000002fe00 A menu_devices
+000000000002fe80 A teo_cpus
+000000000002ff40 A cpu_trig
+000000000002ff80 A numachip2_ced
+0000000000030080 A stimer0_evt
+0000000000030088 A dtpm_per_cpu
+0000000000030090 A idle_inject_device
+00000000000300a0 A idle_inject_thread
+00000000000300c0 A napi_alloc_cache
+00000000000302e0 A netdev_alloc_cache
+0000000000030300 A __net_cookie
+0000000000030320 A flush_works
+0000000000030340 A bpf_sp
+0000000000030540 A bpf_redirect_info
+0000000000030580 A __sock_cookie
+00000000000305c0 A netpoll_srcu_srcu_data
+0000000000030740 A dm_hw_cpu_data
+00000000000307c0 A dm_cpu_data
+0000000000030840 A sch_frag_data_storage
+0000000000030890 A nf_skb_duplicated
+0000000000034000 A __per_cpu_end
+ffffffffb5000000 T startup_64
+ffffffffb5000000 T _stext
+ffffffffb5000000 T _text
+ffffffffb5000070 T secondary_startup_64
+ffffffffb5000075 T secondary_startup_64_no_verify
+ffffffffb5000140 t verify_cpu
+ffffffffb5000240 T sev_verify_cbit
+ffffffffb50002a0 T start_cpu0
+ffffffffb50002ac T vc_boot_ghcb
+ffffffffb5000320 T __startup_64
+ffffffffb5003310 t perf_trace_initcall_finish
+ffffffffc035f1d0 t autofs_dev_ioctl [autofs4]
+ffffffffc035f1f0 t autofs_dev_ioctl_compat [autofs4]
+ffffffffc035f210 t find_autofs_mount.isra.0 [autofs4]
+ffffffffc035f2e0 t autofs_dev_ioctl_ismountpoint [autofs4]
+ffffffffc035f470 t autofs_dev_ioctl_requester [autofs4]
+ffffffffc035f580 t autofs_dev_ioctl_openmount [autofs4]
+ffffffffc0364160 d _autofs_dev_ioctl_misc [autofs4]
+ffffffffc0360c50 r __func__.34560 [autofs4]
+ffffffffc0360c80 r _dev_ioctl_fops [autofs4]
+ffffffffc03648c0 d __this_module [autofs4]
+ffffffffc035f6ab t cleanup_module [autofs4]
+ffffffffc035b2d0 t autofs_free_ino [autofs4]
+ffffffffc035b2a0 t autofs_clean_ino [autofs4]
+ffffffffc035b300 t autofs_kill_sb [autofs4]
+ffffffffc0360600 r autofs_dentry_operations [autofs4]
+ffffffffc035e6d0 t autofs_expire_wait [autofs4]
+ffffffffc035d2f0 t autofs_wait_release [autofs4]
+ffffffffc035e990 t autofs_do_expire_multi [autofs4]
+ffffffffc035d0e0 t is_autofs_dentry [autofs4]
+ffffffffc0360860 r autofs_root_operations [autofs4]
+ffffffffc035d1f0 t autofs_catatonic_mode [autofs4]
+ffffffffc035b240 t autofs_new_ino [autofs4]
+ffffffffc035d6b0 t autofs_wait [autofs4]
+ffffffffc035b380 t autofs_get_inode [autofs4]
+ffffffffc0360740 r autofs_dir_operations [autofs4]
+ffffffffc0360680 r autofs_dir_inode_operations [autofs4]
+ffffffffc035b470 t autofs_fill_super [autofs4]
+ffffffffc035eb60 t autofs_expire_multi [autofs4]
+ffffffffc0364040 d autofs_fs_type [autofs4]
+ffffffffc035e820 t autofs_expire_run [autofs4]
+ffffffffc0360980 r autofs_symlink_inode_operations [autofs4]
+ffffffffc035f690 t autofs_dev_ioctl_exit [autofs4]
+ffffffffc037ee4c t bpf_prog_6deef7357e7b4530 [bpf]
