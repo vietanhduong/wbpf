@@ -3,7 +3,6 @@ package logging
 import (
 	"io"
 	"os"
-	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -11,9 +10,8 @@ import (
 type LogFormat string
 
 const (
-	LogFormatJson   LogFormat = "json"
-	LogFormatJsonTs LogFormat = "json-ts"
-	LogFormatText   LogFormat = "text"
+	LogFormatJson LogFormat = "json"
+	LogFormatText LogFormat = "text"
 )
 
 type LogOutput string
@@ -39,13 +37,9 @@ func WithTextFormat() LogOption {
 	return func(lo *LogOptions) { lo.format = LogFormatText }
 }
 
-func WithJsonTsFormat() LogOption {
-	return func(lo *LogOptions) { lo.format = LogFormatJsonTs }
-}
-
 func WithLogFormat(format LogFormat) LogOption {
 	switch format {
-	case LogFormatText, LogFormatJson, LogFormatJsonTs:
+	case LogFormatText, LogFormatJson:
 	default: // fallback option, in case the input format is invalid
 		format = LogFormatText
 	}
@@ -72,18 +66,10 @@ func (lf LogFormat) LogrusFormat() logrus.Formatter {
 	switch lf {
 	case LogFormatJson:
 		return &logrus.JSONFormatter{
-			DisableTimestamp: true,
-			CallerPrettyfier: prettier,
-		}
-	case LogFormatJsonTs:
-		return &logrus.JSONFormatter{
-			DisableTimestamp: false,
-			TimestampFormat:  time.RFC3339Nano,
 			CallerPrettyfier: prettier,
 		}
 	}
 	return &logrus.TextFormatter{
-		DisableTimestamp: true,
 		DisableColors:    true,
 		CallerPrettyfier: prettier,
 	}

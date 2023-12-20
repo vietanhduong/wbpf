@@ -27,6 +27,7 @@ type Module struct {
 	collection *ebpf.Collection
 
 	kprobes     cmap.ConcurrentMap[string, link.Link]
+	uprobes     cmap.ConcurrentMap[string, *uprobe]
 	ringbufs    cmap.ConcurrentMap[string, *RingBuf]
 	perfbufs    cmap.ConcurrentMap[string, *PerfBuf]
 	tracepoints cmap.ConcurrentMap[string, link.Link]
@@ -66,6 +67,14 @@ func (m *Module) GetTable(name string) (*Table, error) {
 	return &Table{Map: tbl, info: info, mod: m}, nil
 }
 
+// Kprobe attaches the given eBPF program to a perf event that fires when the
+// given kernel symbol starts executing. See /proc/kallsyms for available
+// symbols. For example, printk():
+//
+//	err := mod.AttachKprobe("printk", prog)
+//
+// This function will assume that the syscall is correct. Therefore, the input
+// syscall must be fixed before pass through this.
 func (m *Module) AttachKprobe(sysname, prog string) error {
 	return m.attachKprobe(sysname, prog, false)
 }
@@ -81,6 +90,15 @@ func (m *Module) DetachKprobe(sysname string) {
 	detach(FixSyscallName(sysname))
 }
 
+// AttachKretprobe attaches the given eBPF program to a perf event that fires
+// right before the given kernel symbol exits, with the function stack left
+// intact.
+// See /proc/kallsyms for available symbols. For example, printk():
+//
+//	kp, err := Kretprobe("printk", prog, nil)
+//
+// This function will assume that the syscall is correct. Therefore, the input
+// syscall must be fixed before pass through this.
 func (m *Module) AttachKretprobe(sysname, prog string) error {
 	return m.attachKprobe(sysname, prog, true)
 }
@@ -191,6 +209,64 @@ func (m *Module) attachKprobe(sysname, prog string, ret bool) error {
 		return fmt.Errorf("link %s (%s): %w", fnname, sysname, err)
 	}
 	m.kprobes.Set(sysname, kprobe)
+	return nil
+}
+
+// AttachUprobe attaches the given eBPF program to a perf event that fires when the
+// given symbol starts executing in the given Executable.
+// For example, /bin/bash::main():
+//
+//	mod.AttachUprobe("/bin/bash", prog, &UprobeOptions{SymbolName: "main"})
+//
+// When using symbols which belongs to shared libraries,
+// an offset must be provided via options:
+//
+//	mod.AttachUprobe("/bin/bash", prog, &UprobeOptions{SymbolName: "main", Offset: 0x123})
+//
+// Note: Setting the Offset field in the options supersedes the symbol's offset.
+//
+// You also able to attach multi-symbols by regex matching:
+//
+//	mod.AttachUprobe("/bin/bash", prog, &UprobeOptions{SymbolPattern: "ma*"})
+//
+// Note: Only SymbolPattern or SymbolName must be specified
+//
+// Losing the reference to the resulting Link (up) will close the Uprobe
+// and prevent further execution of prog. The Link must be Closed during
+// program shutdown to avoid leaking system resources.
+//
+// Functions provided by shared libraries can currently not be traced and
+// will result in an ErrNotSupported.
+func (m *Module) AttachUprobe(module, prog string, opts *UprobeOptions) error {
+	return m.attachUprobe(module, prog, false, opts)
+}
+
+func (m *Module) AttachUretprobe(module, prog string, opts *UprobeOptions) error {
+	return m.attachUprobe(module, prog, true, opts)
+}
+
+func (m *Module) attachUprobe(module, prog string, ret bool, opts *UprobeOptions) error {
+	p, err := m.GetProg(prog)
+	if err != nil {
+		return err
+	}
+
+	probes, err := attachUprobe(module, p, ret, opts)
+	if err != nil {
+		return err
+	}
+
+	// We need to ensure that if a probe already be registered, and a new one come in,
+	// the older must be closed before be override. The avoid a resource leak.
+	for _, probe := range probes {
+		if key := probe.keygen(); m.uprobes.Has(key) {
+			log.Warnf("uprobe %s already registered, prepare to close it before override with new uprobe", key)
+			old, _ := m.uprobes.Get(key)
+			old.Close()
+		} else {
+			m.uprobes.Set(key, probe)
+		}
+	}
 	return nil
 }
 
@@ -367,6 +443,13 @@ func (m *Module) Close() {
 	for _, name := range m.perfEvents.Keys() {
 		m.DetachPerfEvent(name)
 	}
+
+	// Detach Uprobes
+	for entry := range m.uprobes.IterBuffered() {
+		entry.Val.Close()
+		m.uprobes.Remove(entry.Key)
+	}
+
 	// Purge Sym caches
 	m.symcaches.Purge()
 }
@@ -396,6 +479,7 @@ func newModule(opts *moduleOptions) (*Module, error) {
 
 	mod := &Module{
 		kprobes:     cmap.New[link.Link](),
+		uprobes:     cmap.New[*uprobe](),
 		ringbufs:    cmap.New[*RingBuf](),
 		perfbufs:    cmap.New[*PerfBuf](),
 		tracepoints: cmap.New[link.Link](),

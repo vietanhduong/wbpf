@@ -1,6 +1,7 @@
 package gosym
 
 import (
+	"log"
 	"math"
 
 	"golang.org/x/exp/slices"
@@ -71,11 +72,13 @@ func (it *PCIndex) First() uint64 {
 
 func (it *PCIndex) FindIndex(addr uint64) int {
 	if it.i32 != nil {
-
 		if addr < uint64(it.i32[0]) {
 			return -1
 		}
 		i, found := slices.BinarySearch(it.i32, uint32(addr))
+		if addr == 0x00401000 {
+			log.Printf("index %d found: %t", i, found)
+		}
 		if found {
 			return i
 		}

@@ -65,7 +65,7 @@ func main() {
 	}
 
 	if len(elfcontent) == 0 {
-		log.Errorf("ERR: no elf object which is embeded, please run `make build-kprobe` first")
+		log.Errorf("ERR: no elf object which is embeded, please run `make build-profiler` first")
 		os.Exit(1)
 	}
 

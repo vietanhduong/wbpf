@@ -14,7 +14,7 @@ func TestName(t *testing.T) {
 	require.Equal(t, SectionLinkIndex(1), name.LinkIndex())
 }
 
-func Test_SymbolTable(t *testing.T) {
+func TestSymbolTable_Resolve(t *testing.T) {
 	testcases := []struct {
 		name  string
 		fpath string
