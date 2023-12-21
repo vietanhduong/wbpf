@@ -25,13 +25,10 @@ var elfcontent []byte
 
 /*
 	struct event {
-	  u32 pid;
-	  u64 parm1;
-	  u64 parm2;
-	  u64 parm3;
-	  u64 parm4;
-	  u64 parm5;
-	  u64 parm6;
+	  __u8 method[16];
+	  __u8 host[128];
+	  __u8 path[128];
+	  __u8 query[128];
 	};
 */
 type event struct {
