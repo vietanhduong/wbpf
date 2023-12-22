@@ -24,18 +24,19 @@ import (
 var elfcontent []byte
 
 /*
-	struct event {
-	  __u8 method[16];
-	  __u8 host[128];
-	  __u8 path[128];
-	  __u8 query[128];
-	};
+struct event_t {
+  __u8 method[16];
+  __u8 host[256];
+  __u8 path[256];
+  __u8 query[512];
+};
 */
+
 type event struct {
 	method [16]byte
-	host   [128]byte
-	path   [128]byte
-	query  [256]byte
+	host   [256]byte
+	path   [256]byte
+	query  [512]byte
 }
 
 var log = logging.DefaultLogger.WithFields(logrus.Fields{"example": "uprobe"})
