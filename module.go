@@ -241,6 +241,31 @@ func (m *Module) AttachUprobe(module, prog string, opts *UprobeOptions) error {
 	return m.attachUprobe(module, prog, false, opts)
 }
 
+// AttachUretprobe attaches the given eBPF program to a perf event that fires right
+// before the given symbol exits.
+// For example, /bin/bash::main():
+//
+//	mod.AttachURetprobe("/bin/bash", prog, &UprobeOptions{SymbolName: "main"})
+//
+// When using symbols which belongs to shared libraries,
+// an offset must be provided via options:
+//
+//	mod.AttachUprobe("/bin/bash", prog, &UprobeOptions{SymbolName: "main", Offset: 0x123})
+//
+// Note: Setting the Offset field in the options supersedes the symbol's offset.
+//
+// You also able to attach multi-symbols by regex matching:
+//
+//	mod.AttachUprobe("/bin/bash", prog, &UprobeOptions{SymbolPattern: "ma*"})
+//
+// Note: Only SymbolPattern or SymbolName must be specified
+//
+// Losing the reference to the resulting Link (up) will close the Uprobe
+// and prevent further execution of prog. The Link must be Closed during
+// program shutdown to avoid leaking system resources.
+//
+// Functions provided by shared libraries can currently not be traced and
+// will result in an ErrNotSupported.
 func (m *Module) AttachUretprobe(module, prog string, opts *UprobeOptions) error {
 	return m.attachUprobe(module, prog, true, opts)
 }
