@@ -3,6 +3,7 @@ package wbpf
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"os"
 	"path"
 	"runtime"
@@ -33,6 +34,7 @@ type Module struct {
 	tracepoints cmap.ConcurrentMap[string, link.Link]
 	rawtps      cmap.ConcurrentMap[string, link.Link]
 	perfEvents  cmap.ConcurrentMap[string, *PerfEvent]
+	xdps        cmap.ConcurrentMap[string, link.Link]
 
 	symcaches *lru.Cache[int, syms.Resolver]
 }
@@ -295,6 +297,40 @@ func (m *Module) attachUprobe(module, prog string, ret bool, opts *UprobeOptions
 	return nil
 }
 
+// AttachXDP links an XDP BPF program to an XDP hook. The input ifname is the name of
+// the network interface to which you want to attach the input program.
+// The input flags must conform to the link.XDPAttachFlags enum.
+func (m *Module) AttachXDP(ifname, prog string, flags uint64) error {
+	p, err := m.GetProg(prog)
+	if err != nil {
+		return err
+	}
+
+	i, err := net.InterfaceByName(ifname)
+	if err != nil {
+		return fmt.Errorf("net interface by name: %w", err)
+	}
+	log.Debugf("found interface %s at index: %d", i.Name, i.Index)
+
+	l, err := link.AttachXDP(link.XDPOptions{
+		Program:   p,
+		Interface: i.Index,
+		Flags:     link.XDPAttachFlags(flags),
+	})
+	if err != nil {
+		return fmt.Errorf("link attach xdp: %w", err)
+	}
+	m.xdps.Set(ifname, l)
+	return nil
+}
+
+func (m *Module) DetachXDP(ifname string) {
+	if l, _ := m.xdps.Get(ifname); l != nil {
+		l.Close()
+	}
+	m.xdps.Remove(ifname)
+}
+
 func (m *Module) OpenPerfBuffer(name string, opts *PerfBufOptions) error {
 	if m.perfbufs.Has(name) {
 		return nil
@@ -362,6 +398,9 @@ func (m *Module) PollRingBuffer(name string, timeout time.Duration) int {
 }
 
 func (m *Module) GetProg(name string) (*ebpf.Program, error) {
+	if name == "" {
+		return nil, fmt.Errorf("prog name is empty")
+	}
 	p, ok := m.collection.Programs[name]
 	if !ok || p == nil {
 		return nil, ErrProgNotFound
@@ -468,11 +507,14 @@ func (m *Module) Close() {
 	for _, name := range m.perfEvents.Keys() {
 		m.DetachPerfEvent(name)
 	}
-
 	// Detach Uprobes
 	for entry := range m.uprobes.IterBuffered() {
 		entry.Val.Close()
 		m.uprobes.Remove(entry.Key)
+	}
+	// Detach XDPs
+	for _, name := range m.xdps.Keys() {
+		m.DetachXDP(name)
 	}
 
 	// Purge Sym caches
@@ -510,6 +552,7 @@ func newModule(opts *moduleOptions) (*Module, error) {
 		tracepoints: cmap.New[link.Link](),
 		rawtps:      cmap.New[link.Link](),
 		perfEvents:  cmap.New[*PerfEvent](),
+		xdps:        cmap.New[link.Link](),
 		symcaches:   symcaches,
 	}
 	if mod.collection, err = ebpf.NewCollection(spec); err != nil {
