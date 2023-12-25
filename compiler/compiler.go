@@ -72,7 +72,7 @@ func Compile(ctx context.Context, source string, opt ...Option) (string, error) 
 
 	args = append(args, defaultCflags()...)
 	args = append(args, fmt.Sprintf("-D__TARGET_ARCH_%s", opts.targetArch.linux))
-	args = append(args, opts.extraParams...)
+	args = append(args, opts.cflags...)
 	args = append(args, "-c", source, "-o", "-") // write output to stdout
 
 	log.WithFields(logrus.Fields{
