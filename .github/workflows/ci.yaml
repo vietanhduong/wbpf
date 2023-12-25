@@ -26,9 +26,21 @@ jobs:
           fi
           staticcheck ./...
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install LLVM
+        env:
+          LLVM_VERSION: 15.0.7
+        run: |
+          ID="$(docker create --name llvm ghcr.io/vietanhduong/wbpf-llvm:${LLVM_VERSION})"
+          sudo docker cp "$ID:/usr/local/bin/clang*" /usr/local/bin
+          docker rm $ID
+          ls -lah /usr/local/bin/clang*
+
       - name: Run Test
         run: |
-          sudo apt-get install -y clang-15 llvm-15 make
+          sudo apt-get install -y make
           TEST_CC=$(which clang) go test ./... -v -exec=sudo -count=1
 
       - name: Build examples
