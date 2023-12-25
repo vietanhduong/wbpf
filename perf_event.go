@@ -6,7 +6,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
-	"github.com/vietanhduong/wbpf/pkg/cpuonline"
+	"github.com/vietanhduong/wbpf/pkg/cpu"
 	"golang.org/x/sys/unix"
 )
 
@@ -24,22 +24,22 @@ type perfEventEntry struct {
 
 type PerfEvent struct {
 	prog *ebpf.Program
-	cpus []*perfEventEntry
+	cpus map[int]*perfEventEntry
 }
 
 func NewPerfEvent(prog *ebpf.Program, opts PerfEventOptions) (*PerfEvent, error) {
-	cpus, err := cpuonline.Get()
+	cpus, err := cpu.OnlineCPUs()
 	if err != nil {
 		return nil, fmt.Errorf("get cpu online: %w", err)
 	}
 
 	this := &PerfEvent{
 		prog: prog,
-		cpus: make([]*perfEventEntry, len(cpus)),
+		cpus: make(map[int]*perfEventEntry, len(cpus)),
 	}
 
 	for _, cpu := range cpus {
-		this.cpus[cpu], err = this.attachPerfEventOnCpu(int(cpu), opts)
+		this.cpus[int(cpu)], err = this.attachPerfEventOnCpu(int(cpu), opts)
 		if err != nil {
 			this.Close()
 			return nil, fmt.Errorf("attach perf event on cpu %d: %w", cpu, err)
@@ -56,6 +56,7 @@ func (pe *PerfEvent) Close() {
 	for _, entry := range pe.cpus {
 		entry.Close()
 	}
+	clear(pe.cpus)
 }
 
 func (p *perfEventEntry) Close() {
