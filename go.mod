@@ -10,6 +10,7 @@ require (
 	github.com/ianlancetaylor/demangle v0.0.0-20231023195312-e2daf7ba7156
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/sirupsen/logrus v1.9.3
+	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.4
 	github.com/tklauser/go-sysconf v0.3.13
 	golang.org/x/sys v0.15.0
@@ -17,6 +18,8 @@ require (
 
 require (
 	github.com/frankban/quicktest v1.14.6 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 )
 
