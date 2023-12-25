@@ -23,8 +23,11 @@ build-llvm:
 		--build-arg LLVM_VERSION=$(LLVM_VERSION) \
 		-t $(LLVM_IMAGE):$(LLVM_VERSION)
 	
+.PHONY: push-compiler
+push-compiler: build-compiler
+	$(DOCKER) push $(COMPILER_IMAGE):$(CURRENT_SHORT_COMMIT)
+
 .PHONY: build-compiler
 build-compiler:
 	$(DOCKER) buildx build . -f ./docker/compiler/Dockerfile \
 		-t $(COMPILER_IMAGE):$(CURRENT_SHORT_COMMIT)
-	
