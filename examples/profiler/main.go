@@ -81,9 +81,15 @@ func main() {
 	}
 	defer mod.Close()
 
-	stacktraces, err := mod.GetTable("stack_traces")
+	tbl, err := mod.GetTable("stack_traces")
 	if err != nil {
 		log.Errorf("ERR: Failed to get stack_traces table: %v", err)
+		os.Exit(1)
+	}
+
+	stacktraces, err := wbpf.NewStackTable(tbl)
+	if err != nil {
+		log.Errorf("ERR: Failed to new stack table: %v", err)
 		os.Exit(1)
 	}
 
