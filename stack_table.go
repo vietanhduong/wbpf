@@ -62,6 +62,13 @@ func (t *StackTable) ClearStackId(stackid int64) {
 	}
 }
 
+func (t *StackTable) GetAddrSymbol(pid int, addr uint64, opts ResolveSymbolOptions) string {
+	if pid < 0 {
+		return t.mod.ResolveKernelSymbol(addr, opts)
+	}
+	return t.mod.ResolveSymbol(pid, addr, opts)
+}
+
 func (st *StackTraceT) ToBytes() []byte {
 	if st == nil {
 		return nil
