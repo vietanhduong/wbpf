@@ -16,6 +16,9 @@ ifeq ($(TARGET_ARCH),)
 	TARGET_ARCH = x86
 endif
 
+.PHONY: build-all
+build-all: $(BUILD_TARGETS)
+
 .PHONY: $(BUILD_TARGETS)
 $(BUILD_TARGETS):
 	$(eval TARGET = $(@:$(BUILD_TARGET_PREFIX)%=%))	
@@ -32,7 +35,5 @@ ifeq ($(BUILD_BPF),1)
 endif
 
 	if [ -n "$$(find ./$(TARGET) -type f -name "*.go")" ]; then \
-		CGO_ENABLED=0 go build -o ./$(TARGET)/$(TARGET) ./$(TARGET); \
+		CGO_ENABLED=0 go build -v -o ./$(TARGET)/$(TARGET) ./$(TARGET); \
 	fi;
-
-	

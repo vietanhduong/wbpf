@@ -44,7 +44,7 @@ const (
 // For the most part, LineTable's methods should be treated as an internal
 // detail of the package; callers should use the methods on Table instead.
 type LineTable struct {
-	//Data []byte
+	// Data []byte
 	PCLNData PCLNData
 	PC       uint64
 	Line     int
@@ -74,7 +74,7 @@ type LineTable struct {
 // corresponding text segment.
 func NewLineTable(data []byte, text uint64) *LineTable {
 	return &LineTable{
-		//Data: data,
+		// Data: data,
 		PCLNData: &MemPCLNData{data},
 		PC:       text,
 		Line:     0,
@@ -83,7 +83,7 @@ func NewLineTable(data []byte, text uint64) *LineTable {
 
 func NewLineTableStreaming(data PCLNData, text uint64) *LineTable {
 	return &LineTable{
-		//Data: data,
+		// Data: data,
 		PCLNData: data,
 		PC:       text,
 		Line:     0,
@@ -251,15 +251,15 @@ func (t *LineTable) Go12Funcs() (res FlatFuncIndex) {
 		res.End = ft.pc(i + 1)
 		dataOffset := t.funcTab().funcOff(int(i))
 
-		//info := t.funcData(uint32(i))
+		// info := t.funcData(uint32(i))
 		funcDatas[i] = dataOffset
-		//res.Name[i] = dataOffset
+		// res.Name[i] = dataOffset
 	}
 	for i := 0; i < nfunc; i++ {
-		//entry := ft.pc(i)
-		//res.Entry.Set(i, entry)
-		//res.End = ft.pc(i + 1)
-		//info := t.funcData(uint32(i))
+		// entry := ft.pc(i)
+		// res.Entry.Set(i, entry)
+		// res.End = ft.pc(i + 1)
+		// info := t.funcData(uint32(i))
 		info := funcData{t: t, dataOffset: funcDatas[i]}
 		res.Name[i] = info.nameOff()
 	}
@@ -318,15 +318,15 @@ func (f funcTab) uintAt(at int) uint64 {
 // funcData is memory corresponding to an _func struct.
 type funcData struct {
 	t *LineTable // LineTable this data is a part of
-	//data []byte     // raw memory for the function
+	// data []byte     // raw memory for the function
 	dataOffset uint64 // offset into funcdata
 }
 
 // funcData returns the ith funcData in t.functab.
-func (t *LineTable) funcData(i uint32) funcData {
-	dataOffset := t.funcTab().funcOff(int(i))
-	return funcData{t: t, dataOffset: dataOffset}
-}
+// func (t *LineTable) funcData(i uint32) funcData {
+// 	dataOffset := t.funcTab().funcOff(int(i))
+// 	return funcData{t: t, dataOffset: dataOffset}
+// }
 
 // IsZero reports whether f is the zero value.
 //func (f funcData) IsZero() bool {
@@ -350,7 +350,7 @@ func (f funcData) field(n uint32) uint32 {
 	}
 	off := sz0 + (n-1)*4 // subsequent fields are 4 bytes each
 	dataOffset := f.dataOffset + f.t.funcdataOffset + uint64(off)
-	//data := f.data[off:]
+	// data := f.data[off:]
 	data := f.t.tmpbuf[:4]
 
 	_ = f.t.PCLNData.ReadAt(data, int(dataOffset))
