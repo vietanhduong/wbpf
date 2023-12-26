@@ -17,7 +17,11 @@ build-examples:
 
 .PHONY: test
 test:
+ifndef CI
 	sudo TEST_CC=$(CLANG) $(GO) test ./... -v -count=1
+else
+	TEST_CC=$(CLANG) $(GO) test ./... -v -count=1 -exec=sudo
+endif
 
 ## DOCKER
 .PHONY: push-llvm
