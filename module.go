@@ -355,6 +355,11 @@ func (m *Module) ClosePerfBuffer(name string) {
 	m.perfbufs.Remove(name)
 }
 
+func (m *Module) GetPerfBuffer(name string) *PerfBuf {
+	buf, _ := m.perfbufs.Get(name)
+	return buf
+}
+
 func (m *Module) PollPerfBuffer(name string, timeout time.Duration) int {
 	if buf, _ := m.perfbufs.Get(name); buf != nil {
 		count, _ := buf.Poll(timeout)
@@ -387,6 +392,11 @@ func (m *Module) CloseRingBuffer(name string) {
 		buf.Close()
 	}
 	m.ringbufs.Remove(name)
+}
+
+func (m *Module) GetRingBuffer(name string) *RingBuf {
+	buf, _ := m.ringbufs.Get(name)
+	return buf
 }
 
 func (m *Module) PollRingBuffer(name string, timeout time.Duration) int {
