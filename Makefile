@@ -1,6 +1,8 @@
 SHELL = /usr/bin/env bash
 DOCKER ?= docker
+GO ?= go
 
+CLANG ?= $$(which clang)
 LLVM_VERSION = 15.0.7
 
 IMAGE_REPO = ghcr.io/vietanhduong
@@ -11,8 +13,13 @@ CURRENT_SHORT_COMMIT = $$(git rev-parse --short HEAD)
 
 .PHONY: build-examples
 build-examples:
-	make -C examples build-all
+	make -C examples CC=$(CLANG) BUILD_BPF=1 build-all
 
+.PHONY: test
+test:
+	sudo TEST_CC=$(CLANG) $(GO) test ./... -v -count=1
+
+## DOCKER
 .PHONY: push-llvm
 push-llvm: build-llvm
 	$(DOCKER) push $(LLVM_IMAGE):$(LLVM_VERSION)

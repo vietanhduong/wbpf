@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/vietanhduong/wbpf"
 )
 
 func Test_Compile(t *testing.T) {
@@ -71,6 +72,10 @@ func Test_Compile(t *testing.T) {
 			require.Nil(t, err)
 			require.False(t, info.IsDir())
 			require.NotZero(t, info.Size())
+
+			mod, err := wbpf.NewModule(wbpf.WithElfFile(output))
+			require.NoError(t, err, "Failed to new wbpf module")
+			mod.Close()
 		})
 	}
 }

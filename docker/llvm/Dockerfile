@@ -3,17 +3,12 @@ FROM ubuntu:22.04 as builder
 ARG LLVM_VERSION=15.0.7
 ENV LLVM_VERSION=${LLVM_VERSION}
 
-COPY install_deps.sh /install_deps.sh
+COPY *.sh /
 
-RUN /install_deps.sh
-
-COPY build_llvm_native.sh /build_llvm_native.sh
-
-RUN /build_llvm_native.sh
-
-COPY build_llvm_cross_aarch64.sh /build_llvm_cross_aarch64.sh
-
-RUN /build_llvm_cross_aarch64.sh
+RUN /install_deps.sh && \
+  /download_llvm.sh && \
+  /build_llvm_native.sh \
+  /build_llvm_cross_aarch64.sh
 
 FROM ubuntu:22.04 as rootfs
 

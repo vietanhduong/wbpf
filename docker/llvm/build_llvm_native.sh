@@ -5,11 +5,7 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-mkdir -p /src/llvm/llvm/build-native &&
-  curl -sSL "https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-${LLVM_VERSION}.tar.gz" |
-  tar -xzf - --strip-components=1 -C /src/llvm
-
-cd /src/llvm/llvm/build-native
+mkdir -p /src/llvm/llvm/build-native && cd $_
 
 cmake .. -G "Ninja" \
   -DLLVM_TARGETS_TO_BUILD="BPF" \

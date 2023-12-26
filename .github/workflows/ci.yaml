@@ -38,12 +38,9 @@ jobs:
           sudo docker cp "$ID:/usr/local/bin/clang-amd64" /usr/local/bin
           sudo docker cp "$ID:/usr/local/bin/clang-arm64" /usr/local/bin
           docker rm $ID
-          ls -lah /usr/local/bin/clang*
 
       - name: Run Test
         run: |
-          sudo apt-get install -y make
-          TEST_CC=$(which clang) go test ./... -v -exec=sudo -count=1
-
-      - name: Build examples
-        run: make -C examples CC=$(which clang) BUILD_BPF=1 build-all
+          sudo apt-get install -y make && \
+            make test &&
+            make build-examples
