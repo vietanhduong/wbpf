@@ -31,7 +31,7 @@ jobs:
 
       - name: Install LLVM
         env:
-          LLVM_VERSION: 15.0.7
+          LLVM_VERSION: "15.0.7"
         run: |
           ID="$(docker create --name llvm ghcr.io/vietanhduong/wbpf-llvm:${LLVM_VERSION} bash -l)"
           sudo docker cp "$ID:/usr/local/bin/clang" /usr/local/bin

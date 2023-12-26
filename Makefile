@@ -1,8 +1,8 @@
 SHELL = /usr/bin/env bash
 DOCKER ?= docker
 GO ?= go
-
 CLANG ?= $$(which clang)
+
 LLVM_VERSION = 15.0.7
 
 IMAGE_REPO = ghcr.io/vietanhduong
