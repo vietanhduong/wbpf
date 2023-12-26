@@ -7,7 +7,7 @@ COPY *.sh /
 
 RUN /install_deps.sh && \
   /download_llvm.sh && \
-  /build_llvm_native.sh \
+  /build_llvm_native.sh && \
   /build_llvm_cross_aarch64.sh
 
 FROM ubuntu:22.04 as rootfs
