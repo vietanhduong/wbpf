@@ -22,3 +22,7 @@ go.work
 /.vscode
 
 .DS_Store
+
+# The following files get created during image builds
+.buildx
+.buildx_builder

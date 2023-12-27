@@ -2,6 +2,8 @@ SHELL = /usr/bin/env bash
 DOCKER ?= docker
 GO ?= go
 CLANG ?= $$(which clang)
+PLATFORMS = linux/amd64,linux/arm64
+
 
 LLVM_VERSION = 15.0.7
 
@@ -10,6 +12,12 @@ LLVM_IMAGE = $(IMAGE_REPO)/wbpf-llvm
 COMPILER_IMAGE = $(IMAGE_REPO)/wbpf-compiler
 
 CURRENT_SHORT_COMMIT = $$(git rev-parse --short HEAD)
+
+PUSH ?= false
+DOCKER_OUTPUT = "type=image"
+ifeq ($(PUSH), true)
+DOCKER_OUTPUT	= "type=registry,push=true"
+endif
 
 .PHONY: build-examples
 build-examples:
@@ -24,21 +32,23 @@ else
 endif
 
 ## DOCKER
-.PHONY: push-llvm
-push-llvm: build-llvm
-	$(DOCKER) push $(LLVM_IMAGE):$(LLVM_VERSION)
+buildx_builder:
+	docker buildx create --platform $(PLATFORMS) --buildkitd-flags '--debug' --name $@
 
 .PHONY: build-llvm
-build-llvm:
+build-llvm: buildx_builder
 	$(DOCKER) buildx build ./docker/llvm \
 		--build-arg LLVM_VERSION=$(LLVM_VERSION) \
-		-t $(LLVM_IMAGE):$(LLVM_VERSION)
+		--platform=$(PLATFORMS) \
+		--output=$(DOCKER_OUTPUT) \
+		--builder="$<" \
+		--tag $(LLVM_IMAGE):$(LLVM_VERSION)
 	
-.PHONY: push-compiler
-push-compiler: build-compiler
-	$(DOCKER) push $(COMPILER_IMAGE):$(CURRENT_SHORT_COMMIT)
 
 .PHONY: build-compiler
-build-compiler:
-	$(DOCKER) buildx build . -f ./docker/compiler/Dockerfile \
-		-t $(COMPILER_IMAGE):$(CURRENT_SHORT_COMMIT)
+build-compiler: buildx_builder
+	$(DOCKER) buildx build . --file ./docker/compiler/Dockerfile \
+		--platform=$(PLATFORMS) \
+		--output=$(DOCKER_OUTPUT) \
+		--builder="$<" \
+		--tag $(COMPILER_IMAGE):$(CURRENT_SHORT_COMMIT)
