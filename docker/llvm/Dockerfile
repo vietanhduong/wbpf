@@ -5,10 +5,10 @@ ENV LLVM_VERSION=${LLVM_VERSION}
 
 COPY *.sh /
 
-RUN /install_deps.sh && \
-  /download_llvm.sh && \
-  /build_llvm_native.sh && \
-  /build_llvm_cross_aarch64.sh
+RUN  /install_deps.sh 
+RUN  /download_llvm.sh 
+RUN  /build_llvm_native.sh 
+RUN  /build_llvm_cross_aarch64.sh
 
 FROM ubuntu:22.04 as rootfs
 
