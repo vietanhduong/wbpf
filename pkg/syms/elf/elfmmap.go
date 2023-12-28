@@ -49,7 +49,7 @@ func NewMMapedElfFile(fpath string) (*MMapedElfFile, error) {
 	res.Progs = progs
 	res.Sections = sections
 
-	runtime.SetFinalizer(res, func(obj *MMapedElfFile) { obj.Finalize() })
+	runtime.SetFinalizer(res, func(obj *MMapedElfFile) { obj.Close() })
 	return res, nil
 }
 
@@ -80,14 +80,10 @@ func (f *MMapedElfFile) ensureOpen() error {
 	return f.open()
 }
 
-func (f *MMapedElfFile) Finalize() {
-	if f.fd != nil {
-		println("ebpf mmaped elf not closed")
-	}
-	f.Close()
-}
-
 func (f *MMapedElfFile) Close() {
+	if f == nil {
+		return
+	}
 	if f.fd != nil {
 		f.fd.Close()
 		f.fd = nil
