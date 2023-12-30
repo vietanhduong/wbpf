@@ -19,7 +19,7 @@ type PerfEventOptions struct {
 
 type perfEventEntry struct {
 	perfFd  int
-	rawlink link.Link
+	rawlink *link.RawLink
 }
 
 type PerfEvent struct {
