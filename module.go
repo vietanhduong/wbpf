@@ -321,7 +321,7 @@ func (m *Module) AttachXDP(ifname, prog string, flags uint64) error {
 	if err != nil {
 		return fmt.Errorf("net interface by name: %w", err)
 	}
-	log.Debugf("found interface %s at index: %d", i.Name, i.Index)
+	log.Tracef("Found interface %s at index: %d", i.Name, i.Index)
 
 	l, err := link.AttachXDP(link.XDPOptions{
 		Program:   p,

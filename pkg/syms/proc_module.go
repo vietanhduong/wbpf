@@ -110,7 +110,7 @@ func (m *ProcModule) load() {
 	if m.typ == SO || m.typ == EXEC {
 		mf, err := elf.NewMMapedElfFile(m.path.GetPath())
 		if err != nil {
-			log.Errorf("Failed to open mmaped file %s: %v", m.path.GetPath(), err)
+			log.WithError(err).Tracef("Failed to open mmaped file %s", m.path.GetPath())
 			return
 		}
 		defer mf.Close()
@@ -128,7 +128,7 @@ func (m *ProcModule) load() {
 			if debugfile := m.findDebugFile(mf); debugfile != "" {
 				debugmf, err := elf.NewMMapedElfFile(debugfile)
 				if err != nil {
-					log.Errorf("Failed to open mmaped debug file %s: %v", debugfile, err)
+					log.WithError(err).Tracef("Failed to open mmaped debug file %s", debugfile)
 					return
 				}
 				defer debugmf.Close()
@@ -144,7 +144,7 @@ func (m *ProcModule) load() {
 		var err error
 		m.table, err = buildVDSOResolver()
 		if err != nil {
-			log.Warnf("Failed to create vDSO resolver: %v", err)
+			log.WithError(err).Trace("Failed to create vDSO resolver")
 		}
 	}
 }
@@ -203,10 +203,10 @@ func createSymbolTable(mf *elf.MMapedElfFile, opts *elf.SymbolOptions) SymbolTab
 
 	symtbl, err := mf.NewSymbolTable(opts)
 	if err != nil {
-		log.WithError(err).Debugf("Failed to create Symbol Table (ELF: %s)", mf.FilePath())
+		log.WithError(err).Tracef("Failed to create Symbol Table (ELF: %s)", mf.FilePath())
 	}
 	if symtbl == nil && gotbl == nil {
-		log.Errorf("No symbol resolver available for ELF file %s", mf.FilePath())
+		log.Warnf("No symbol resolver available for ELF file %s", mf.FilePath())
 		return &emptyTable{}
 	}
 	if gotbl != nil {

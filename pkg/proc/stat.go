@@ -68,8 +68,8 @@ func (s *Stat) RefreshRoot() bool {
 	s.rootFd, err = unix.Open(s.rootSymlink, unix.O_PATH, 0)
 	if err != nil {
 		log.WithFields(logrus.Fields{
-			logfields.File: s.rootSymlink,
-			logfields.PID:  s.pid,
+			"filepath":    s.rootSymlink,
+			logfields.PID: s.pid,
 		}).Tracef("Failed to open: %v", err)
 	}
 	if s.rootFd == oldFd { // should never happen

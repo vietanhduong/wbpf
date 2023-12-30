@@ -46,7 +46,7 @@ func (t *StackTable) GetStackAddr(stackid int64, clear bool) []uint64 {
 
 	if clear {
 		if err := t.Delete(id); err != nil {
-			log.Tracef("Failed to delete key 0x%08x: %v", stackid, err)
+			log.WithError(err).Tracef("Failed to delete key 0x%08x", stackid)
 			return nil
 		}
 	}
@@ -58,7 +58,7 @@ func (t *StackTable) ClearStackId(stackid int64) {
 		return
 	}
 	if err := t.Delete(uint32(stackid)); err != nil {
-		log.Tracef("Failed to delete key 0x%08x: %v", stackid, err)
+		log.WithError(err).Tracef("Failed to delete key 0x%08x", stackid)
 	}
 }
 

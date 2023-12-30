@@ -28,7 +28,7 @@ func (s *KernSym) Refresh() {
 	}
 	symbols, err := parseKallsyms(s.path)
 	if err != nil {
-		log.Warnf("KernSym refresh: failed to parse kallsym(path=%s): %v", s.path, err)
+		log.WithError(err).Warnf("KernSym refresh: failed to parse kallsym(path=%s)", s.path)
 		return
 	}
 	s.symbols = symbols
