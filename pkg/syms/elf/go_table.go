@@ -116,12 +116,7 @@ func (f *MMapedElfFile) NewGoTable(fallback Table) (*GoTable, error) {
 	if len(funcs.Name) == 0 || funcs.Entry.Length() == 0 || funcs.End == 0 {
 		return nil, errGoSymbolsNotFound
 	}
-	//if funcs.Entry32 == nil && funcs.Entry64 == nil {
-	//	return nil, errGoParseFailed // this should not happen
-	//}
-	//if funcs.Entry32 != nil && funcs.Entry64 != nil {
-	//	return nil, errGoParseFailed // this should not happen
-	//}
+
 	if funcs.Entry.Length() != len(funcs.Name) {
 		return nil, errGoParseFailed // this should not happen
 	}

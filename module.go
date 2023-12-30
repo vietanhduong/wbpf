@@ -18,6 +18,7 @@ import (
 	"github.com/vietanhduong/wbpf/pkg/logging"
 	"github.com/vietanhduong/wbpf/pkg/logging/logfields"
 	"github.com/vietanhduong/wbpf/pkg/syms"
+	"github.com/vietanhduong/wbpf/pkg/utils"
 )
 
 var log = logging.DefaultLogger.WithFields(logrus.Fields{logfields.LogSubsys: "module"})
@@ -39,6 +40,8 @@ type Module struct {
 	symcaches *lru.Cache[int, syms.Resolver]
 }
 
+// NewModule creates a new eBPF module from the given file or content.
+// Only one of file or content must be specified.
 func NewModule(opts ...ModuleOption) (*Module, error) {
 	modOpts := defaultModuleOpts()
 	for _, opt := range opts {
@@ -57,6 +60,7 @@ func NewModule(opts ...ModuleOption) (*Module, error) {
 	return mod, nil
 }
 
+// GetTable returns the table with the given name.
 func (m *Module) GetTable(name string) (*Table, error) {
 	tbl, ok := m.collection.Maps[name]
 	if !ok || tbl == nil {
@@ -83,7 +87,7 @@ func (m *Module) AttachKprobe(sysname, prog string) error {
 
 func (m *Module) DetachKprobe(sysname string) {
 	detach := func(name string) {
-		if kprobe, _ := m.kprobes.Get(name); kprobe != nil {
+		if kprobe, _ := m.kprobes.Get(name); !utils.IsNil(kprobe) {
 			kprobe.Close()
 		}
 		m.kprobes.Remove(name)
@@ -129,8 +133,10 @@ func (m *Module) AttachTracepoint(name, prog string) error {
 	return nil
 }
 
+// DetachTracepoint detaches the tracepoint with the given name.
+// The input name must be in the format 'group:name'
 func (m *Module) DetachTracepoint(name string) {
-	if tp, _ := m.tracepoints.Get(name); tp != nil {
+	if tp, _ := m.tracepoints.Get(name); !utils.IsNil(tp) {
 		tp.Close()
 	}
 	m.tracepoints.Remove(name)
@@ -156,13 +162,18 @@ func (m *Module) AttachRawTracepoint(name, prog string) error {
 	return nil
 }
 
+// DetachRawTracepoint detaches the raw tracepoint with the given name.
+// The input name is in the format 'name', there is no group.
 func (m *Module) DetachRawTracepoint(name string) {
-	if rawtp, _ := m.rawtps.Get(name); rawtp != nil {
+	if rawtp, _ := m.rawtps.Get(name); !utils.IsNil(rawtp) {
 		rawtp.Close()
 	}
 	m.rawtps.Remove(name)
 }
 
+// AttachPerfEvent attaches the given eBPF program to a perf event that fires
+// when the given event occurs. See /sys/bus/event_source/devices/ for available
+// events.
 func (m *Module) AttachPerfEvent(prog string, opts PerfEventOptions) error {
 	if m.perfEvents.Has(prog) {
 		return nil
@@ -325,12 +336,14 @@ func (m *Module) AttachXDP(ifname, prog string, flags uint64) error {
 }
 
 func (m *Module) DetachXDP(ifname string) {
-	if l, _ := m.xdps.Get(ifname); l != nil {
+	if l, _ := m.xdps.Get(ifname); !utils.IsNil(l) {
 		l.Close()
 	}
 	m.xdps.Remove(ifname)
 }
 
+// OpenPerfBuffer opens a perf buffer for the given table. The input opts is optional.
+// If opts is nil, the default options will be used.
 func (m *Module) OpenPerfBuffer(name string, opts *PerfBufOptions) error {
 	if m.perfbufs.Has(name) {
 		return nil
@@ -348,6 +361,7 @@ func (m *Module) OpenPerfBuffer(name string, opts *PerfBufOptions) error {
 	return nil
 }
 
+// ClosePerfBuffer closes the perf buffer with the given name.
 func (m *Module) ClosePerfBuffer(name string) {
 	if buf, _ := m.perfbufs.Get(name); buf != nil {
 		buf.Close()
@@ -355,11 +369,16 @@ func (m *Module) ClosePerfBuffer(name string) {
 	m.perfbufs.Remove(name)
 }
 
+// GetPerfBuffer returns the perf buffer with the given name.
+// If the perf buffer is not found, nil will be returned.
 func (m *Module) GetPerfBuffer(name string) *PerfBuf {
 	buf, _ := m.perfbufs.Get(name)
 	return buf
 }
 
+// PollPerfBuffer polls the perf buffer with the given name.
+// If timeout is zero, the poll will return immediately.
+// If timeout is negative, the poll will block until an event is available.
 func (m *Module) PollPerfBuffer(name string, timeout time.Duration) int {
 	if buf, _ := m.perfbufs.Get(name); buf != nil {
 		count, _ := buf.Poll(timeout)
@@ -368,6 +387,7 @@ func (m *Module) PollPerfBuffer(name string, timeout time.Duration) int {
 	return -1
 }
 
+// OpenRingBuffer opens a ring buffer for the given table. The input opts is optional.
 func (m *Module) OpenRingBuffer(name string, opts *RingBufOptions) error {
 	if m.ringbufs.Has(name) {
 		return nil
@@ -387,6 +407,7 @@ func (m *Module) OpenRingBuffer(name string, opts *RingBufOptions) error {
 	return nil
 }
 
+// CloseRingBuffer closes the ring buffer with the given name.
 func (m *Module) CloseRingBuffer(name string) {
 	if buf, _ := m.ringbufs.Get(name); buf != nil {
 		buf.Close()
@@ -394,11 +415,15 @@ func (m *Module) CloseRingBuffer(name string) {
 	m.ringbufs.Remove(name)
 }
 
+// GetRingBuffer returns the ring buffer with the given name.
 func (m *Module) GetRingBuffer(name string) *RingBuf {
 	buf, _ := m.ringbufs.Get(name)
 	return buf
 }
 
+// PollRingBuffer polls the ring buffer with the given name. If timeout is zero,
+// the poll will return immediately. If timeout is negative, the poll will block
+// until an event is available.
 func (m *Module) PollRingBuffer(name string, timeout time.Duration) int {
 	if buf, _ := m.ringbufs.Get(name); buf != nil {
 		count, _ := buf.Poll(timeout)
@@ -485,6 +510,9 @@ func (m *Module) GetOrCreateSymbolCache(pid int) syms.Resolver {
 	return cache
 }
 
+// Close closes the module and all of its resources.
+// This function is expected to be call when the module is no longer needed to avoid
+// resource leak.
 func (m *Module) Close() {
 	if m == nil {
 		return

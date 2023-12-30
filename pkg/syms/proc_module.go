@@ -10,6 +10,7 @@ import (
 	"github.com/vietanhduong/wbpf/pkg/logging/logfields"
 	"github.com/vietanhduong/wbpf/pkg/proc"
 	"github.com/vietanhduong/wbpf/pkg/syms/elf"
+	"github.com/vietanhduong/wbpf/pkg/utils"
 )
 
 type ProcModule struct {
@@ -91,7 +92,7 @@ func (m *ProcModule) findbase(mf *elf.MMapedElfFile) bool {
 func (m *ProcModule) load() {
 	defer func() {
 		// This will ensure no nil pointer error when we call table to resolve symbol
-		if m.table == nil {
+		if utils.IsNil(m.table) {
 			m.table = &emptyTable{}
 		}
 		m.log.WithFields(logrus.Fields{
@@ -200,11 +201,11 @@ func createSymbolTable(mf *elf.MMapedElfFile, opts *elf.SymbolOptions) SymbolTab
 
 	symtbl, err := mf.NewSymbolTable(opts)
 	if err != nil {
-		log.Debugf("Failed to create Symbol Table (ELF: %s): %v", mf.FilePath(), err)
+		log.WithError(err).Debugf("Failed to create Symbol Table (ELF: %s)", mf.FilePath())
 	}
 	if symtbl == nil && gotbl == nil {
-		log.Errorf("No resolve available for ELF file %s", mf.FilePath())
-		return nil
+		log.Errorf("No symbol resolver available for ELF file %s", mf.FilePath())
+		return &emptyTable{}
 	}
 	if gotbl != nil {
 		gotbl.SetFallback(symtbl)

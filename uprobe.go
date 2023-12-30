@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
+	"github.com/vietanhduong/wbpf/pkg/utils"
 )
 
 var ErrNoSymbolsFound = fmt.Errorf("no symbols found")
@@ -160,7 +161,7 @@ func findSymbols(module string, pattern *regexp.Regexp) (map[string]uint64, erro
 }
 
 func (u *uprobe) Close() {
-	if u == nil || u.link == nil {
+	if u == nil || utils.IsNil(u.link) {
 		return
 	}
 	u.link.Close()
