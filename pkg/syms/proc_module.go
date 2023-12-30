@@ -208,6 +208,8 @@ func createSymbolTable(mf *elf.MMapedElfFile, opts *elf.SymbolOptions) SymbolTab
 		return &emptyTable{}
 	}
 	if gotbl != nil {
+		// SetFallback already ensure that the symtbl must not nil, otherwise it will use a
+		// empty table. So we don't need to check nil here.
 		gotbl.SetFallback(symtbl)
 		return gotbl
 	}

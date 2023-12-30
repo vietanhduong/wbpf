@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	gosym2 "github.com/vietanhduong/wbpf/pkg/syms/gosym"
+	"github.com/vietanhduong/wbpf/pkg/utils"
 )
 
 type GoTable struct {
@@ -121,7 +122,7 @@ func (f *MMapedElfFile) NewGoTable(fallback Table) (*GoTable, error) {
 		return nil, errGoParseFailed // this should not happen
 	}
 
-	if fallback == nil {
+	if utils.IsNil(fallback) {
 		fallback = &emptyFallback{}
 	}
 
@@ -136,7 +137,7 @@ func (f *MMapedElfFile) NewGoTable(fallback Table) (*GoTable, error) {
 }
 
 func (g *GoTable) SetFallback(fallback Table) {
-	if fallback != nil {
+	if !utils.IsNil(fallback) {
 		g.fallback = fallback
 	}
 }
