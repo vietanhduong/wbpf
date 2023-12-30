@@ -36,8 +36,6 @@ jobs:
         run: |
           ID="$(docker create --name llvm ghcr.io/vietanhduong/wbpf-llvm:${LLVM_VERSION} bash -l)"
           sudo docker cp "$ID:/usr/local/bin/clang" /usr/local/bin
-          sudo docker cp "$ID:/usr/local/bin/clang-amd64" /usr/local/bin
-          sudo docker cp "$ID:/usr/local/bin/clang-arm64" /usr/local/bin
           docker rm $ID
 
       - name: Run Test
