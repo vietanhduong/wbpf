@@ -95,10 +95,12 @@ func (m *ProcModule) load() {
 		if utils.IsNil(m.table) {
 			m.table = &emptyTable{}
 		}
-		m.log.WithFields(logrus.Fields{
-			logfields.ProcModulePath:      m.path.GetPath(),
-			logfields.ProcModuleTableSize: m.table.Size(),
-		}).Debugf("Loaded symbol table!")
+		if m.typ != UNKNOWN {
+			m.log.WithFields(logrus.Fields{
+				logfields.ProcModulePath:      m.path.GetPath(),
+				logfields.ProcModuleTableSize: m.table.Size(),
+			}).Debugf("Loaded symbol table!")
+		}
 	}()
 	if m.loaded || m.typ == UNKNOWN {
 		return
