@@ -99,7 +99,7 @@ func (m *ProcModule) load() {
 			m.log.WithFields(logrus.Fields{
 				logfields.ProcModulePath:      m.path.GetPath(),
 				logfields.ProcModuleTableSize: m.table.Size(),
-			}).Debugf("Loaded symbol table!")
+			}).Tracef("Loaded symbol table!")
 		}
 	}()
 	if m.loaded || m.typ == UNKNOWN {
