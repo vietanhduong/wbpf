@@ -36,6 +36,7 @@ type Module struct {
 	rawtps      cmap.ConcurrentMap[string, link.Link]
 	perfEvents  cmap.ConcurrentMap[string, *PerfEvent]
 	xdps        cmap.ConcurrentMap[string, link.Link]
+	tracings    cmap.ConcurrentMap[string, link.Link]
 
 	symcaches *lru.Cache[int, syms.Resolver]
 }
@@ -432,6 +433,48 @@ func (m *Module) PollRingBuffer(name string, timeout time.Duration) int {
 	return -1
 }
 
+func (m *Module) AttachFExit(prog string) error {
+	return m.AttachTracing(prog, ebpf.AttachTraceFExit)
+}
+
+func (m *Module) AttachFEntry(prog string) error {
+	return m.AttachTracing(prog, ebpf.AttachTraceFEntry)
+}
+
+func (m *Module) AttachModifyReturn(prog string) error {
+	return m.AttachTracing(prog, ebpf.AttachModifyReturn)
+}
+
+// AttachTracing links a tracing (fentry/fexit/fmod_ret) BPF program or
+// a BTF-powered raw tracepoint (tp_btf) BPF Program to a BPF hook defined
+// in kernel modules.
+func (m *Module) AttachTracing(prog string, typ ebpf.AttachType) error {
+	if m.tracings.Has(prog) {
+		return nil
+	}
+	p, err := m.GetProg(prog)
+	if err != nil {
+		return err
+	}
+
+	tp, err := link.AttachTracing(link.TracingOptions{
+		Program:    p,
+		AttachType: typ,
+	})
+	if err != nil {
+		return fmt.Errorf("link tracing (type=%s): %w", typ.String(), err)
+	}
+	m.tracings.Set(prog, tp)
+	return nil
+}
+
+func (m *Module) DetachTracing(prog string) {
+	if tp, _ := m.tracings.Get(prog); !utils.IsNil(tp) {
+		tp.Close()
+	}
+	m.tracings.Remove(prog)
+}
+
 func (m *Module) GetProg(name string) (*ebpf.Program, error) {
 	if name == "" {
 		return nil, fmt.Errorf("prog name is empty")
@@ -554,6 +597,10 @@ func (m *Module) Close() {
 	for _, name := range m.xdps.Keys() {
 		m.DetachXDP(name)
 	}
+	// Detach Tracings
+	for _, name := range m.tracings.Keys() {
+		m.DetachTracing(name)
+	}
 
 	// Purge Sym caches
 	m.symcaches.Purge()
@@ -591,6 +638,7 @@ func newModule(opts *moduleOptions) (*Module, error) {
 		rawtps:      cmap.New[link.Link](),
 		perfEvents:  cmap.New[*PerfEvent](),
 		xdps:        cmap.New[link.Link](),
+		tracings:    cmap.New[link.Link](),
 		symcaches:   symcaches,
 	}
 	if mod.collection, err = ebpf.NewCollection(spec); err != nil {
