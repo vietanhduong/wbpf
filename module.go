@@ -199,7 +199,11 @@ func (m *Module) DetachPerfEvent(prog string) {
 }
 
 func (m *Module) attachKprobe(sysname, prog string, ret bool) error {
-	if m.kprobes.Has(sysname) {
+	key := sysname
+	if ret {
+		key = fmt.Sprintf("%s_ret", sysname)
+	}
+	if m.kprobes.Has(key) {
 		return nil
 	}
 
@@ -222,7 +226,7 @@ func (m *Module) attachKprobe(sysname, prog string, ret bool) error {
 	if err != nil {
 		return fmt.Errorf("link %s (%s): %w", fnname, sysname, err)
 	}
-	m.kprobes.Set(sysname, kprobe)
+	m.kprobes.Set(key, kprobe)
 	return nil
 }
 
