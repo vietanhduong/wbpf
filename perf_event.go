@@ -6,6 +6,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
+	"github.com/hashicorp/go-multierror"
 	"github.com/vietanhduong/wbpf/pkg/cpu"
 	"golang.org/x/sys/unix"
 )
@@ -48,25 +49,29 @@ func NewPerfEvent(prog *ebpf.Program, opts PerfEventOptions) (*PerfEvent, error)
 	return this, nil
 }
 
-func (pe *PerfEvent) Close() {
+func (pe *PerfEvent) Close() error {
 	if pe == nil {
-		return
+		return nil
 	}
-
+	var err error
 	for _, entry := range pe.cpus {
-		entry.Close()
+		if err2 := entry.Close(); err != nil {
+			err = multierror.Append(err, err2)
+		}
 	}
 	clear(pe.cpus)
+	return err
 }
 
-func (p *perfEventEntry) Close() {
+func (p *perfEventEntry) Close() error {
 	if p == nil {
-		return
+		return nil
 	}
 	_ = syscall.Close(p.perfFd)
 	if p.rawlink != nil {
-		_ = p.rawlink.Close()
+		return p.rawlink.Close()
 	}
+	return nil
 }
 
 func (pe *PerfEvent) attachPerfEventOnCpu(cpu int, opts PerfEventOptions) (*perfEventEntry, error) {

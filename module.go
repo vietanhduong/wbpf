@@ -62,6 +62,7 @@ func NewModule(opts ...ModuleOption) (*Module, error) {
 }
 
 // GetTable returns the table with the given name.
+// Otherwise, an error will be returned.
 func (m *Module) GetTable(name string) (*Table, error) {
 	tbl, ok := m.collection.Maps[name]
 	if !ok || tbl == nil {
@@ -86,12 +87,15 @@ func (m *Module) AttachKprobe(sysname, prog string) error {
 	return m.attachKprobe(sysname, prog, false)
 }
 
-func (m *Module) DetachKprobe(sysname string) {
+// DetachKprobe detaches the kprobe with the given name. If the input prog is empty,
+// all kprobes with the given name will be detached.
+func (m *Module) DetachKprobe(sysname, prog string) {
 	detach := func(name string) {
-		if kprobe, _ := m.kprobes.Get(name); !utils.IsNil(kprobe) {
-			kprobe.Close()
+		if prog == "" {
+			detachPrefix(fmt.Sprintf("%s~", name), m.kprobes)
+			return
 		}
-		m.kprobes.Remove(name)
+		detach(fmt.Sprintf("%s~%s", name, prog), m.kprobes)
 	}
 	detach(sysname)
 	detach(FixSyscallName(sysname))
@@ -113,7 +117,8 @@ func (m *Module) AttachKretprobe(sysname, prog string) error {
 // AttachTracepoint attaches a tracepoint to the input prog.
 // The input name must be in the format 'group:name'
 func (m *Module) AttachTracepoint(name, prog string) error {
-	if m.tracepoints.Has(name) {
+	key := fmt.Sprintf("%s~%s", name, prog)
+	if m.tracepoints.Has(key) {
 		return nil
 	}
 	parts := strings.SplitN(name, ":", 2)
@@ -130,23 +135,26 @@ func (m *Module) AttachTracepoint(name, prog string) error {
 	if err != nil {
 		return fmt.Errorf("link tracepoint: %w", err)
 	}
-	m.tracepoints.Set(name, tp)
+	m.tracepoints.Set(key, tp)
 	return nil
 }
 
 // DetachTracepoint detaches the tracepoint with the given name.
-// The input name must be in the format 'group:name'
-func (m *Module) DetachTracepoint(name string) {
-	if tp, _ := m.tracepoints.Get(name); !utils.IsNil(tp) {
-		tp.Close()
+// The input name must be in the format 'group:name'. If the input prog is empty,
+// all tracepoints with the given name will be detached.
+func (m *Module) DetachTracepoint(name, prog string) {
+	if prog == "" {
+		detachPrefix(fmt.Sprintf("%s~", name), m.tracepoints)
+		return
 	}
-	m.tracepoints.Remove(name)
+	detach(fmt.Sprintf("%s~%s", name, prog), m.tracepoints)
 }
 
 // AttachRawTracepoint attaches a raw tracepoint to the input prog.
 // The input name is in the format 'name', there is no group.
 func (m *Module) AttachRawTracepoint(name, prog string) error {
-	if m.rawtps.Has(name) {
+	key := fmt.Sprintf("%s~%s", name, prog)
+	if m.rawtps.Has(key) {
 		return nil
 	}
 
@@ -159,17 +167,19 @@ func (m *Module) AttachRawTracepoint(name, prog string) error {
 	if err != nil {
 		return fmt.Errorf("link attach raw tracepoint %s: %w", name, err)
 	}
-	m.rawtps.Set(name, rawtp)
+	m.rawtps.Set(key, rawtp)
 	return nil
 }
 
-// DetachRawTracepoint detaches the raw tracepoint with the given name.
-// The input name is in the format 'name', there is no group.
-func (m *Module) DetachRawTracepoint(name string) {
-	if rawtp, _ := m.rawtps.Get(name); !utils.IsNil(rawtp) {
-		rawtp.Close()
+// DetachRawTracepoint detaches the raw tracepoint with the given name and prog.
+// The input name is in the format 'name', there is no group. If the input prog
+// is empty, all raw tracepoints with the given name will be detached.
+func (m *Module) DetachRawTracepoint(name, prog string) {
+	if prog == "" {
+		detachPrefix(fmt.Sprintf("%s~", name), m.rawtps)
+		return
 	}
-	m.rawtps.Remove(name)
+	detach(fmt.Sprintf("%s~%s", name, prog), m.rawtps)
 }
 
 // AttachPerfEvent attaches the given eBPF program to a perf event that fires
@@ -191,17 +201,12 @@ func (m *Module) AttachPerfEvent(prog string, opts PerfEventOptions) error {
 	return nil
 }
 
-func (m *Module) DetachPerfEvent(prog string) {
-	if event, _ := m.perfEvents.Get(prog); event != nil {
-		event.Close()
-	}
-	m.perfEvents.Remove(prog)
-}
+func (m *Module) DetachPerfEvent(prog string) { detach(prog, m.perfEvents) }
 
 func (m *Module) attachKprobe(sysname, prog string, ret bool) error {
-	key := sysname
+	key := fmt.Sprintf("%s~%s", sysname, prog)
 	if ret {
-		key = fmt.Sprintf("%s_ret", sysname)
+		key = fmt.Sprintf("%s~ret", sysname)
 	}
 	if m.kprobes.Has(key) {
 		return nil
@@ -317,6 +322,10 @@ func (m *Module) attachUprobe(module, prog string, ret bool, opts *UprobeOptions
 // the network interface to which you want to attach the input program.
 // The input flags must conform to the link.XDPAttachFlags enum.
 func (m *Module) AttachXDP(ifname, prog string, flags uint64) error {
+	key := fmt.Sprintf("%s~%s", ifname, prog)
+	if m.xdps.Has(key) {
+		return nil
+	}
 	p, err := m.GetProg(prog)
 	if err != nil {
 		return err
@@ -336,15 +345,18 @@ func (m *Module) AttachXDP(ifname, prog string, flags uint64) error {
 	if err != nil {
 		return fmt.Errorf("link attach xdp: %w", err)
 	}
-	m.xdps.Set(ifname, l)
+	m.xdps.Set(key, l)
 	return nil
 }
 
-func (m *Module) DetachXDP(ifname string) {
-	if l, _ := m.xdps.Get(ifname); !utils.IsNil(l) {
-		l.Close()
+// DetachXDP detaches the XDP program from the given interface. If the input prog is empty,
+// all XDP programs attached to the given interface will be detached.
+func (m *Module) DetachXDP(ifname, prog string) {
+	if prog == "" { // remove all with the given ifname
+		detachPrefix(fmt.Sprintf("%s~", ifname), m.xdps)
+		return
 	}
-	m.xdps.Remove(ifname)
+	detach(fmt.Sprintf("%s~%s", ifname, prog), m.xdps)
 }
 
 // OpenPerfBuffer opens a perf buffer for the given table. The input opts is optional.
@@ -453,7 +465,8 @@ func (m *Module) AttachModifyReturn(prog string) error {
 // a BTF-powered raw tracepoint (tp_btf) BPF Program to a BPF hook defined
 // in kernel modules.
 func (m *Module) AttachTracing(prog string, typ ebpf.AttachType) error {
-	if m.tracings.Has(prog) {
+	key := fmt.Sprintf("%s~%s", prog, typ.String())
+	if m.tracings.Has(key) {
 		return nil
 	}
 	p, err := m.GetProg(prog)
@@ -468,15 +481,16 @@ func (m *Module) AttachTracing(prog string, typ ebpf.AttachType) error {
 	if err != nil {
 		return fmt.Errorf("link tracing (type=%s): %w", typ.String(), err)
 	}
-	m.tracings.Set(prog, tp)
+	m.tracings.Set(key, tp)
 	return nil
 }
 
-func (m *Module) DetachTracing(prog string) {
-	if tp, _ := m.tracings.Get(prog); !utils.IsNil(tp) {
-		tp.Close()
+func (m *Module) DetachTracing(prog string, typ ebpf.AttachType) {
+	if typ == ebpf.AttachNone {
+		detachPrefix(fmt.Sprintf("%s~", prog), m.tracings)
+		return
 	}
-	m.tracings.Remove(prog)
+	detach(fmt.Sprintf("%s~%s", prog, typ.String()), m.tracings)
 }
 
 func (m *Module) GetProg(name string) (*ebpf.Program, error) {
@@ -569,8 +583,8 @@ func (m *Module) Close() {
 		defer m.collection.Close()
 	}
 	// Detach Kprobes
-	for _, name := range m.kprobes.Keys() {
-		m.DetachKprobe(name)
+	for _, key := range m.kprobes.Keys() {
+		detach(key, m.kprobes)
 	}
 	// Close Ring Buffers
 	for _, name := range m.ringbufs.Keys() {
@@ -581,12 +595,12 @@ func (m *Module) Close() {
 		m.ClosePerfBuffer(name)
 	}
 	// Detach Raw Tracepoints
-	for _, name := range m.rawtps.Keys() {
-		m.DetachRawTracepoint(name)
+	for _, key := range m.rawtps.Keys() {
+		detach(key, m.rawtps)
 	}
 	// Detach Tracepoints
-	for _, name := range m.tracepoints.Keys() {
-		m.DetachTracepoint(name)
+	for _, key := range m.tracepoints.Keys() {
+		detach(key, m.tracepoints)
 	}
 	// Detach PerfEvents
 	for _, name := range m.perfEvents.Keys() {
@@ -598,12 +612,12 @@ func (m *Module) Close() {
 		m.uprobes.Remove(entry.Key)
 	}
 	// Detach XDPs
-	for _, name := range m.xdps.Keys() {
-		m.DetachXDP(name)
+	for _, key := range m.xdps.Keys() {
+		detach(key, m.xdps)
 	}
 	// Detach Tracings
-	for _, name := range m.tracings.Keys() {
-		m.DetachTracing(name)
+	for _, key := range m.tracings.Keys() {
+		detach(key, m.tracings)
 	}
 
 	// Purge Sym caches
@@ -649,4 +663,19 @@ func newModule(opts *moduleOptions) (*Module, error) {
 		return nil, fmt.Errorf("ebpf new collection: %w", err)
 	}
 	return mod, nil
+}
+
+func detach[T interface{ Close() error }](key string, m cmap.ConcurrentMap[string, T]) {
+	if v, _ := m.Get(key); !utils.IsNil(v) {
+		v.Close()
+	}
+	m.Remove(key)
+}
+
+func detachPrefix[T interface{ Close() error }](prefix string, m cmap.ConcurrentMap[string, T]) {
+	for _, k := range m.Keys() {
+		if strings.HasPrefix(k, prefix) {
+			detach(k, m)
+		}
+	}
 }
