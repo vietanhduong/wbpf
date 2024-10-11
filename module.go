@@ -659,7 +659,7 @@ func newModule(opts *moduleOptions) (*Module, error) {
 		tracings:    cmap.New[link.Link](),
 		symcaches:   symcaches,
 	}
-	if mod.collection, err = ebpf.NewCollection(spec); err != nil {
+	if mod.collection, err = ebpf.NewCollectionWithOptions(spec, opts.collectionOptions); err != nil {
 		return nil, fmt.Errorf("ebpf new collection: %w", err)
 	}
 	return mod, nil

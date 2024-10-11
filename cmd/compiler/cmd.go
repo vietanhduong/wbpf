@@ -32,7 +32,7 @@ func newCommand() *cobra.Command {
 		Long: `
 eBPF compiler which is used to compile the input source to C-Preprocessor or Object file.
 To do this, eBPF compile require a compiler tool like 'clang'. You also change the compiler
-via the $CC environment variable. 
+via the $CC environment variable.
 		`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			pflag := cmd.Flags()
