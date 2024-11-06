@@ -37,6 +37,7 @@ type Module struct {
 	perfEvents  cmap.ConcurrentMap[string, *PerfEvent]
 	xdps        cmap.ConcurrentMap[string, link.Link]
 	tracings    cmap.ConcurrentMap[string, link.Link]
+	lsms        cmap.ConcurrentMap[string, link.Link]
 
 	symcaches *lru.Cache[int, syms.Resolver]
 }
@@ -461,6 +462,28 @@ func (m *Module) AttachModifyReturn(prog string) error {
 	return m.AttachTracing(prog, ebpf.AttachModifyReturn)
 }
 
+// AttachLSM links a Linux security module (LSM) BPF Program to a BPF
+// hook defined in kernel modules.
+func (m *Module) AttachLSM(prog string) error {
+	if m.lsms.Has(prog) {
+		return nil
+	}
+
+	p, err := m.GetProg(prog)
+	if err != nil {
+		return err
+	}
+
+	lsm, err := link.AttachLSM(link.LSMOptions{
+		Program: p,
+	})
+	if err != nil {
+		return fmt.Errorf("link lsm: %w", err)
+	}
+	m.lsms.Set(prog, lsm)
+	return nil
+}
+
 // AttachTracing links a tracing (fentry/fexit/fmod_ret) BPF program or
 // a BTF-powered raw tracepoint (tp_btf) BPF Program to a BPF hook defined
 // in kernel modules.
@@ -620,6 +643,11 @@ func (m *Module) Close() {
 		detach(key, m.tracings)
 	}
 
+	// Detach LSMs
+	for _, key := range m.lsms.Keys() {
+		detach(key, m.lsms)
+	}
+
 	// Purge Sym caches
 	m.symcaches.Purge()
 }
@@ -657,6 +685,7 @@ func newModule(opts *moduleOptions) (*Module, error) {
 		perfEvents:  cmap.New[*PerfEvent](),
 		xdps:        cmap.New[link.Link](),
 		tracings:    cmap.New[link.Link](),
+		lsms:        cmap.New[link.Link](),
 		symcaches:   symcaches,
 	}
 	if mod.collection, err = ebpf.NewCollectionWithOptions(spec, opts.collectionOptions); err != nil {
