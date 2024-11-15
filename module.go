@@ -537,6 +537,12 @@ func (m *Module) PinProg(name, path string) error {
 	if err != nil {
 		return fmt.Errorf("get prog: %w", err)
 	}
+
+	if p.IsPinned() {
+		log.WithField(logfields.Prog, name).Debug("prog already pinned")
+		return nil
+	}
+
 	if err := p.Pin(path); err != nil {
 		return fmt.Errorf("pin prog: %w", err)
 	}
