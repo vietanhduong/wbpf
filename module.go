@@ -84,7 +84,7 @@ func (m *Module) GetTable(name string) (*Table, error) {
 //
 // This function will assume that the syscall is correct. Therefore, the input
 // syscall must be fixed before pass through this.
-func (m *Module) AttachKprobe(sysname, prog string) error {
+func (m *Module) AttachKprobe(sysname, prog string) (link.Link, error) {
 	return m.attachKprobe(sysname, prog, false)
 }
 
@@ -111,33 +111,33 @@ func (m *Module) DetachKprobe(sysname, prog string) {
 //
 // This function will assume that the syscall is correct. Therefore, the input
 // syscall must be fixed before pass through this.
-func (m *Module) AttachKretprobe(sysname, prog string) error {
+func (m *Module) AttachKretprobe(sysname, prog string) (link.Link, error) {
 	return m.attachKprobe(sysname, prog, true)
 }
 
 // AttachTracepoint attaches a tracepoint to the input prog.
 // The input name must be in the format 'group:name'
-func (m *Module) AttachTracepoint(name, prog string) error {
+func (m *Module) AttachTracepoint(name, prog string) (link.Link, error) {
 	key := fmt.Sprintf("%s~%s", name, prog)
-	if m.tracepoints.Has(key) {
-		return nil
+	if l, ok := m.tracepoints.Get(key); ok {
+		return l, nil
 	}
 	parts := strings.SplitN(name, ":", 2)
 	if len(parts) < 2 {
-		return fmt.Errorf("invalid tracepoint name, expected %q but got %q", "<group>:<name>", name)
+		return nil, fmt.Errorf("invalid tracepoint name, expected %q but got %q", "<group>:<name>", name)
 	}
 
 	p, err := m.GetProg(prog)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("getting program %s: %w", prog, err)
 	}
 
-	tp, err := link.Tracepoint(parts[0], parts[1], p, nil)
+	l, err := link.Tracepoint(parts[0], parts[1], p, nil)
 	if err != nil {
-		return fmt.Errorf("link tracepoint: %w", err)
+		return nil, fmt.Errorf("attaching tracepoint: %w", err)
 	}
-	m.tracepoints.Set(key, tp)
-	return nil
+	m.tracepoints.Set(key, l)
+	return l, nil
 }
 
 // DetachTracepoint detaches the tracepoint with the given name.
@@ -153,23 +153,23 @@ func (m *Module) DetachTracepoint(name, prog string) {
 
 // AttachRawTracepoint attaches a raw tracepoint to the input prog.
 // The input name is in the format 'name', there is no group.
-func (m *Module) AttachRawTracepoint(name, prog string) error {
+func (m *Module) AttachRawTracepoint(name, prog string) (link.Link, error) {
 	key := fmt.Sprintf("%s~%s", name, prog)
-	if m.rawtps.Has(key) {
-		return nil
+	if l, ok := m.rawtps.Get(key); ok {
+		return l, nil
 	}
 
 	p, err := m.GetProg(prog)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("getting program %s: %w", prog, err)
 	}
 
-	rawtp, err := link.AttachRawTracepoint(link.RawTracepointOptions{Name: name, Program: p})
+	l, err := link.AttachRawTracepoint(link.RawTracepointOptions{Name: name, Program: p})
 	if err != nil {
-		return fmt.Errorf("link attach raw tracepoint %s: %w", name, err)
+		return nil, fmt.Errorf("attaching raw tracepoint %s: %w", name, err)
 	}
-	m.rawtps.Set(key, rawtp)
-	return nil
+	m.rawtps.Set(key, l)
+	return l, nil
 }
 
 // DetachRawTracepoint detaches the raw tracepoint with the given name and prog.
@@ -204,18 +204,18 @@ func (m *Module) AttachPerfEvent(prog string, opts PerfEventOptions) error {
 
 func (m *Module) DetachPerfEvent(prog string) { detach(prog, m.perfEvents) }
 
-func (m *Module) attachKprobe(sysname, prog string, ret bool) error {
+func (m *Module) attachKprobe(sysname, prog string, ret bool) (link.Link, error) {
 	key := fmt.Sprintf("%s~%s", sysname, prog)
 	if ret {
 		key = fmt.Sprintf("%s~ret", sysname)
 	}
-	if m.kprobes.Has(key) {
-		return nil
+	if l, ok := m.kprobes.Get(key); ok {
+		return l, nil
 	}
 
 	p, err := m.GetProg(prog)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("getting prog %s: %w", prog, err)
 	}
 
 	var fn func(symbol string, prog *ebpf.Program, opts *link.KprobeOptions) (link.Link, error)
@@ -228,12 +228,12 @@ func (m *Module) attachKprobe(sysname, prog string, ret bool) error {
 		fnname = "kprobe"
 	}
 
-	kprobe, err := fn(sysname, p, nil)
+	l, err := fn(sysname, p, nil)
 	if err != nil {
-		return fmt.Errorf("link %s (%s): %w", fnname, sysname, err)
+		return nil, fmt.Errorf("attaching kprobe %s (%s): %w", fnname, sysname, err)
 	}
-	m.kprobes.Set(key, kprobe)
-	return nil
+	m.kprobes.Set(key, l)
+	return l, nil
 }
 
 // AttachUprobe attaches the given eBPF program to a perf event that fires when the
@@ -322,19 +322,19 @@ func (m *Module) attachUprobe(module, prog string, ret bool, opts *UprobeOptions
 // AttachXDP links an XDP BPF program to an XDP hook. The input ifname is the name of
 // the network interface to which you want to attach the input program.
 // The input flags must conform to the link.XDPAttachFlags enum.
-func (m *Module) AttachXDP(ifname, prog string, flags uint64) error {
+func (m *Module) AttachXDP(ifname, prog string, flags uint64) (link.Link, error) {
 	key := fmt.Sprintf("%s~%s", ifname, prog)
-	if m.xdps.Has(key) {
-		return nil
+	if l, ok := m.xdps.Get(key); ok {
+		return l, nil
 	}
 	p, err := m.GetProg(prog)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("getting program %s: %w", prog, err)
 	}
 
 	i, err := net.InterfaceByName(ifname)
 	if err != nil {
-		return fmt.Errorf("net interface by name: %w", err)
+		return nil, fmt.Errorf("getting network interface: %w", err)
 	}
 	log.Tracef("Found interface %s at index: %d", i.Name, i.Index)
 
@@ -344,10 +344,10 @@ func (m *Module) AttachXDP(ifname, prog string, flags uint64) error {
 		Flags:     link.XDPAttachFlags(flags),
 	})
 	if err != nil {
-		return fmt.Errorf("link attach xdp: %w", err)
+		return nil, fmt.Errorf("attaching xdp: %w", err)
 	}
 	m.xdps.Set(key, l)
-	return nil
+	return l, nil
 }
 
 // DetachXDP detaches the XDP program from the given interface. If the input prog is empty,
@@ -413,12 +413,12 @@ func (m *Module) OpenRingBuffer(name string, opts *RingBufOptions) error {
 
 	tbl, err := m.GetTable(name)
 	if err != nil {
-		return fmt.Errorf("get table: %w", err)
+		return fmt.Errorf("getting table: %w", err)
 	}
 
 	buf, err := NewRingBuf(tbl, opts)
 	if err != nil {
-		return fmt.Errorf("new ringbuf: %w", err)
+		return fmt.Errorf("creating ringbuf: %w", err)
 	}
 
 	m.ringbufs.Set(name, buf)
@@ -450,51 +450,51 @@ func (m *Module) PollRingBuffer(name string, timeout time.Duration) int {
 	return -1
 }
 
-func (m *Module) AttachFExit(prog string) error {
+func (m *Module) AttachFExit(prog string) (link.Link, error) {
 	return m.AttachTracing(prog, ebpf.AttachTraceFExit)
 }
 
-func (m *Module) AttachFEntry(prog string) error {
+func (m *Module) AttachFEntry(prog string) (link.Link, error) {
 	return m.AttachTracing(prog, ebpf.AttachTraceFEntry)
 }
 
-func (m *Module) AttachModifyReturn(prog string) error {
+func (m *Module) AttachModifyReturn(prog string) (link.Link, error) {
 	return m.AttachTracing(prog, ebpf.AttachModifyReturn)
 }
 
 // AttachLSM links a Linux security module (LSM) BPF Program to a BPF
 // hook defined in kernel modules.
-func (m *Module) AttachLSM(prog string) error {
-	if m.lsms.Has(prog) {
-		return nil
+func (m *Module) AttachLSM(prog string) (link.Link, error) {
+	if l, ok := m.lsms.Get(prog); ok {
+		return l, nil
 	}
 
 	p, err := m.GetProg(prog)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("getting program %s: %w", prog, err)
 	}
 
-	lsm, err := link.AttachLSM(link.LSMOptions{
-		Program: p,
-	})
+	l, err := link.AttachLSM(link.LSMOptions{Program: p})
 	if err != nil {
-		return fmt.Errorf("link lsm: %w", err)
+		return nil, fmt.Errorf("attaching lsm: %w", err)
 	}
-	m.lsms.Set(prog, lsm)
-	return nil
+
+	m.lsms.Set(prog, l)
+	return l, err
 }
 
 // AttachTracing links a tracing (fentry/fexit/fmod_ret) BPF program or
 // a BTF-powered raw tracepoint (tp_btf) BPF Program to a BPF hook defined
 // in kernel modules.
-func (m *Module) AttachTracing(prog string, typ ebpf.AttachType) error {
+func (m *Module) AttachTracing(prog string, typ ebpf.AttachType) (link.Link, error) {
 	key := fmt.Sprintf("%s~%s", prog, typ.String())
-	if m.tracings.Has(key) {
-		return nil
+	if l, ok := m.tracings.Get(key); ok {
+		return l, nil
 	}
+
 	p, err := m.GetProg(prog)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("getting program %s: %w", prog, err)
 	}
 
 	tp, err := link.AttachTracing(link.TracingOptions{
@@ -502,10 +502,10 @@ func (m *Module) AttachTracing(prog string, typ ebpf.AttachType) error {
 		AttachType: typ,
 	})
 	if err != nil {
-		return fmt.Errorf("link tracing (type=%s): %w", typ.String(), err)
+		return nil, fmt.Errorf("attaching tracing (type=%s): %w", typ.String(), err)
 	}
 	m.tracings.Set(key, tp)
-	return nil
+	return tp, nil
 }
 
 func (m *Module) DetachTracing(prog string, typ ebpf.AttachType) {
@@ -525,28 +525,6 @@ func (m *Module) GetProg(name string) (*ebpf.Program, error) {
 		return nil, ErrProgNotFound
 	}
 	return p, nil
-}
-
-// / Pin the input program name on the BPF virtual file system past the lifetime of
-// the process that created it
-//
-// Calling Pin on a previously pinned program will overwrite the path, except when
-// the new path already exists. Re-pinning across filesystems is not supported.
-func (m *Module) PinProg(name, path string) error {
-	p, err := m.GetProg(name)
-	if err != nil {
-		return fmt.Errorf("get prog: %w", err)
-	}
-
-	if p.IsPinned() {
-		log.WithField(logfields.Prog, name).Debug("prog already pinned")
-		return nil
-	}
-
-	if err := p.Pin(path); err != nil {
-		return fmt.Errorf("pin prog: %w", err)
-	}
-	return nil
 }
 
 type ResolveSymbolOptions struct {
@@ -672,6 +650,40 @@ func (m *Module) Close() {
 
 	// Purge Sym caches
 	m.symcaches.Purge()
+}
+
+// UpdateLink loads a pinned bpf_link at the given pin path and updates its
+// program.
+//
+// Returns [os.ErrNotExist] if the pin is not found.
+//
+// Updating the link can fail if it is defunct (the hook it points to no longer
+// exists).
+func UpdateLink(pinpath string, prog *ebpf.Program) error {
+	l, err := link.LoadPinnedLink(pinpath, &ebpf.LoadPinOptions{})
+	if err != nil {
+		return fmt.Errorf("opening pinned link %s: %w", pinpath, err)
+	}
+	if err = l.Update(prog); err != nil {
+		return fmt.Errorf("updating link %s: %w", pinpath, err)
+	}
+	return nil
+}
+
+// DetachLink loads and unpins a bpf_link at the given pin path.
+//
+// Returns [os.ErrNotExist] if the pin is not found.
+func UnpinLink(pin string) error {
+	l, err := link.LoadPinnedLink(pin, &ebpf.LoadPinOptions{})
+	if err != nil {
+		return fmt.Errorf("opening pinned link %s: %w", pin, err)
+	}
+	defer l.Close()
+
+	if err := l.Unpin(); err != nil {
+		return fmt.Errorf("unpinning link %s: %w", pin, err)
+	}
+	return nil
 }
 
 func newModule(opts *moduleOptions) (*Module, error) {

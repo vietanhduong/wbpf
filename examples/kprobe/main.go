@@ -62,17 +62,17 @@ func main() {
 		os.Exit(1)
 	}
 	defer mod.Close()
-	if err := mod.AttachKprobe(wbpf.GetSyscallName("execve"), "exec"); err != nil {
+	if _, err := mod.AttachKprobe(wbpf.GetSyscallName("execve"), "exec"); err != nil {
 		log.Printf("ERR: Failed attach kprobe execve: %v", err)
 		os.Exit(1)
 	}
 
-	if err := mod.AttachKprobe(wbpf.GetSyscallName("execveat"), "exec"); err != nil {
+	if _, err := mod.AttachKprobe(wbpf.GetSyscallName("execveat"), "exec"); err != nil {
 		log.Printf("ERR: Failed attach kprobe execve: %v", err)
 		os.Exit(1)
 	}
 
-	if err := mod.AttachKprobe("disassociate_ctty", "disassociate_ctty"); err != nil {
+	if _, err := mod.AttachKprobe("disassociate_ctty", "disassociate_ctty"); err != nil {
 		log.Printf("ERR: Failed attach kprobe disassociate_ctty: %v", err)
 		os.Exit(1)
 	}

@@ -53,7 +53,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = mod.AttachXDP(ifname, "xdp_stat_pkt", 0); err != nil {
+	if _, err = mod.AttachXDP(ifname, "xdp_stat_pkt", 0); err != nil {
 		log.Errorf("Failed to attach XDP to interface %s: %v", ifname, err)
 		os.Exit(1)
 	}
