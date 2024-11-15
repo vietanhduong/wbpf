@@ -527,6 +527,22 @@ func (m *Module) GetProg(name string) (*ebpf.Program, error) {
 	return p, nil
 }
 
+// / Pin the input program name on the BPF virtual file system past the lifetime of
+// the process that created it
+//
+// Calling Pin on a previously pinned program will overwrite the path, except when
+// the new path already exists. Re-pinning across filesystems is not supported.
+func (m *Module) PinProg(name, path string) error {
+	p, err := m.GetProg(name)
+	if err != nil {
+		return fmt.Errorf("get prog: %w", err)
+	}
+	if err := p.Pin(path); err != nil {
+		return fmt.Errorf("pin prog: %w", err)
+	}
+	return nil
+}
+
 type ResolveSymbolOptions struct {
 	ShowOffset bool
 	ShowModule bool
