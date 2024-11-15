@@ -1,11 +1,13 @@
 module github.com/vietanhduong/wbpf
 
-go 1.21
+go 1.22.0
+
+toolchain go1.22.5
 
 require (
 	github.com/avvmoto/buf-readerat v0.0.0-20171115124131-a17c8cb89270
-	github.com/cilium/ebpf v0.12.3
-	github.com/google/go-cmp v0.5.9
+	github.com/cilium/ebpf v0.16.0
+	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/ianlancetaylor/demangle v0.0.0-20231023195312-e2daf7ba7156
@@ -14,11 +16,10 @@ require (
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.4
 	github.com/tklauser/go-sysconf v0.3.13
-	golang.org/x/sys v0.15.0
+	golang.org/x/sys v0.27.0
 )
 
 require (
-	github.com/frankban/quicktest v1.14.6 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
@@ -29,6 +30,6 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/tklauser/numcpus v0.7.0 // indirect
-	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
+	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
