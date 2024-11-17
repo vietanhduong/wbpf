@@ -652,40 +652,6 @@ func (m *Module) Close() {
 	m.symcaches.Purge()
 }
 
-// UpdateLink loads a pinned bpf_link at the given pin path and updates its
-// program.
-//
-// Returns [os.ErrNotExist] if the pin is not found.
-//
-// Updating the link can fail if it is defunct (the hook it points to no longer
-// exists).
-func UpdateLink(pinpath string, prog *ebpf.Program) error {
-	l, err := link.LoadPinnedLink(pinpath, &ebpf.LoadPinOptions{})
-	if err != nil {
-		return fmt.Errorf("opening pinned link %s: %w", pinpath, err)
-	}
-	if err = l.Update(prog); err != nil {
-		return fmt.Errorf("updating link %s: %w", pinpath, err)
-	}
-	return nil
-}
-
-// DetachLink loads and unpins a bpf_link at the given pin path.
-//
-// Returns [os.ErrNotExist] if the pin is not found.
-func UnpinLink(pin string) error {
-	l, err := link.LoadPinnedLink(pin, &ebpf.LoadPinOptions{})
-	if err != nil {
-		return fmt.Errorf("opening pinned link %s: %w", pin, err)
-	}
-	defer l.Close()
-
-	if err := l.Unpin(); err != nil {
-		return fmt.Errorf("unpinning link %s: %w", pin, err)
-	}
-	return nil
-}
-
 func newModule(opts *moduleOptions) (*Module, error) {
 	if opts.file != "" {
 		buf, err := os.ReadFile(opts.file)
