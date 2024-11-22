@@ -110,10 +110,9 @@ func defaultCflags() []string {
 		log.WithError(err).Warnf("Failed to get possible CPUs")
 	}
 	return []string{
-		"-O2", "--target=bpf", "-mcpu=v1",
+		"-O2", "--target=bpf", fmt.Sprintf("-mcpu=%s", cpu.GetBPFCPU()),
 		fmt.Sprintf("-D__NR_CPUS__=%d", len(cpus)),
-		"-Wall", "-Werror", "-fpie",
-		"-Wno-unused-variable", "-Wno-unused-function",
+		"-Wall", "-Werror",
 	}
 }
 

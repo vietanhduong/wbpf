@@ -1,10 +1,26 @@
 package cpu
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/features"
+	"github.com/vietanhduong/wbpf/pkg/logging"
+	"github.com/vietanhduong/wbpf/pkg/logging/logfields"
+)
+
+var log = logging.DefaultLogger.WithField(logfields.LogComponent, "cpu")
+
+var (
+	probeCPUOnce sync.Once
+	// default fallback
+	nameBPFCPU = "v1"
 )
 
 const (
@@ -28,6 +44,24 @@ func PossibleCPUs() ([]uint, error) {
 		return nil, fmt.Errorf("os read file %s: %w", possibleCpu, err)
 	}
 	return readCpuRange(string(buf))
+}
+
+// GetBPFCPU returns the BPF CPU for this host.
+func GetBPFCPU() string {
+	probeCPUOnce.Do(func() {
+		if haveV3ISA() == nil {
+			if haveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) == nil {
+				nameBPFCPU = "v3"
+				return
+			}
+		}
+		// We want to enable v2 on all kernels that support it, that is,
+		// kernels 4.14+.
+		if haveV2ISA() == nil {
+			nameBPFCPU = "v2"
+		}
+	})
+	return nameBPFCPU
 }
 
 // loosely based on https://github.com/iovisor/bcc/blob/v0.3.0/src/python/bcc/utils.py#L15
@@ -56,4 +90,37 @@ func readCpuRange(str string) ([]uint, error) {
 		}
 	}
 	return cpus, nil
+}
+
+func haveV3ISA() error {
+	err := features.HaveV3ISA()
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		return err
+	}
+	if err != nil {
+		log.WithError(err).Fatal("failed to probe V3 ISA")
+	}
+	return nil
+}
+
+func haveV2ISA() error {
+	err := features.HaveV2ISA()
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		return err
+	}
+	if err != nil {
+		log.WithError(err).Fatal("failed to probe V2 ISA")
+	}
+	return nil
+}
+
+func haveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
+	err := features.HaveProgramHelper(pt, helper)
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		return err
+	}
+	if err != nil {
+		log.WithError(err).WithField("programtype", pt).WithField("helper", helper).Fatal("failed to probe helper")
+	}
+	return nil
 }
