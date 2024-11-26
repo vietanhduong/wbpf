@@ -73,7 +73,7 @@ func Test_Compile(t *testing.T) {
 			require.False(t, info.IsDir())
 			require.NotZero(t, info.Size())
 
-			mod, err := wbpf.NewModule(wbpf.WithElfFile(output))
+			mod, _, err := wbpf.NewModule(wbpf.WithElfFile(output))
 			require.NoError(t, err, "Failed to new wbpf module")
 			mod.Close()
 		})

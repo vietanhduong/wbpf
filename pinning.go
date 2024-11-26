@@ -40,15 +40,15 @@ func mapsToReplace(toReplace []string, spec *ebpf.CollectionSpec, coll *ebpf.Col
 	for _, key := range toReplace {
 		m, ok := coll.Maps[key]
 		if !ok {
-			return nil, fmt.Errorf("Map %s not found in Collection", key)
+			return nil, fmt.Errorf("map %s not found in collection", key)
 		}
 		ms, ok := spec.Maps[key]
 		if !ok {
-			return nil, fmt.Errorf("MapSpec %s not found in CollectionSpec", key)
+			return nil, fmt.Errorf("map spec %s not found in collection spec", key)
 		}
 
 		if m.IsPinned() {
-			return nil, fmt.Errorf("Map %s was already pinned by ebpf-go: LIBBPF_PIN_BY_NAME and CILIUM_PIN_REPLACE are mutually exclusive", ms.Name)
+			return nil, fmt.Errorf("map %s was already pinned by ebpf-go: LIBBPF_PIN_BY_NAME is mutually exclusive", ms.Name)
 		}
 
 		pins = append(pins, toPin{m: m, path: path.Join(opts.Maps.PinPath, ms.Name)})
