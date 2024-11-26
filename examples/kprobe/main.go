@@ -56,7 +56,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	mod, err := wbpf.NewModule(wbpf.WithElfFileContent(elfcontent))
+	mod, _, err := wbpf.NewModule(wbpf.WithElfFileContent(elfcontent))
 	if err != nil {
 		log.Printf("ERR: Failed to new module: %v", err)
 		os.Exit(1)

@@ -2,6 +2,7 @@ package wbpf
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"github.com/vietanhduong/wbpf/pkg/logging/logfields"
 	"github.com/vietanhduong/wbpf/pkg/syms"
 	"github.com/vietanhduong/wbpf/pkg/utils"
+	"golang.org/x/sys/unix"
 )
 
 var log = logging.DefaultLogger.WithFields(logrus.Fields{logfields.LogSubsys: "module"})
@@ -44,7 +46,12 @@ type Module struct {
 
 // NewModule creates a new eBPF module from the given file or content.
 // Only one of file or content must be specified.
-func NewModule(opts ...ModuleOption) (*Module, error) {
+// Returns:
+// - The module
+// - A function that must be called after attaching the Collection's entrypoint
+// programs to their respective hooks
+// - An error if the module could not be created
+func NewModule(opts ...ModuleOption) (*Module, func() error, error) {
 	modOpts := defaultModuleOpts()
 	for _, opt := range opts {
 		opt(modOpts)
@@ -52,14 +59,14 @@ func NewModule(opts ...ModuleOption) (*Module, error) {
 
 	if (modOpts.file == "" && len(modOpts.content) == 0) ||
 		(modOpts.file != "" && len(modOpts.content) != 0) {
-		return nil, fmt.Errorf("only one of file or content must be specified")
+		return nil, nil, fmt.Errorf("only one of file or content must be specified")
 	}
-	mod, err := newModule(modOpts)
+	mod, commit, err := newModule(modOpts)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	runtime.SetFinalizer(mod, func(m *Module) { m.Close() })
-	return mod, nil
+	return mod, commit, nil
 }
 
 // GetTable returns the table with the given name.
@@ -652,18 +659,18 @@ func (m *Module) Close() {
 	m.symcaches.Purge()
 }
 
-func newModule(opts *moduleOptions) (*Module, error) {
+func newModule(opts *moduleOptions) (*Module, func() error, error) {
 	if opts.file != "" {
 		buf, err := os.ReadFile(opts.file)
 		if err != nil {
-			return nil, fmt.Errorf("os read file: %w", err)
+			return nil, nil, fmt.Errorf("os read file: %w", err)
 		}
 		opts.content = buf
 	}
 
 	spec, err := ebpf.LoadCollectionSpecFromReader(bytes.NewReader(opts.content))
 	if err != nil {
-		return nil, fmt.Errorf("ebpf load collection spec: %w", err)
+		return nil, nil, fmt.Errorf("ebpf load collection spec: %w", err)
 	}
 
 	symcaches, err := lru.NewWithEvict[int, syms.Resolver](opts.symCacheSize, func(key int, value syms.Resolver) {
@@ -672,7 +679,7 @@ func newModule(opts *moduleOptions) (*Module, error) {
 		}
 	})
 	if err != nil {
-		return nil, fmt.Errorf("new symbol lru cache: %w", err)
+		return nil, nil, fmt.Errorf("new symbol lru cache: %w", err)
 	}
 
 	mod := &Module{
@@ -688,10 +695,41 @@ func newModule(opts *moduleOptions) (*Module, error) {
 		lsms:        cmap.New[link.Link](),
 		symcaches:   symcaches,
 	}
-	if mod.collection, err = ebpf.NewCollectionWithOptions(spec, opts.collectionOptions); err != nil {
-		return nil, fmt.Errorf("ebpf new collection: %w", err)
+
+	mod.collection, err = ebpf.NewCollectionWithOptions(spec, opts.collectionOptions)
+	var toReplace []string
+	// Handle incompatible maps
+	// Collect key names of maps that are not compatible with their pinned
+	// counterparts and remove their pinning flags.
+	if errors.Is(err, ebpf.ErrMapIncompatible) {
+		var incompatible []string
+		incompatible, err = incompatibleMaps(spec, opts.collectionOptions)
+		if err != nil {
+			return nil, nil, fmt.Errorf("finding incompatible maps: %w", err)
+		}
+		toReplace = append(toReplace, incompatible...)
+
+		// Retry loading the Collection with necessary pinning flags removed.
+		mod.collection, err = ebpf.NewCollectionWithOptions(spec, opts.collectionOptions)
 	}
-	return mod, nil
+	if err != nil {
+		return nil, nil, fmt.Errorf("ebpf new collection: %w", err)
+	}
+
+	// Collect Maps that need their bpffs pins replaced. Pull out Map objects
+	// before returning the Collection, since commit() still needs to work when
+	// the Map is removed from the Collection, e.g. by [ebpf.Collection.Assign].
+	pins, err := mapsToReplace(toReplace, spec, mod.collection, opts.collectionOptions)
+	if err != nil {
+		return nil, nil, fmt.Errorf("collecting map pins to replace: %w", err)
+	}
+
+	// Load successful, return a function that must be invoked after attaching the
+	// Collection's entrypoint programs to their respective hooks.
+	commit := func() error {
+		return commitMapPins(pins)
+	}
+	return mod, commit, nil
 }
 
 func detach[T interface{ Close() error }](key string, m cmap.ConcurrentMap[string, T]) {
@@ -707,4 +745,43 @@ func detachPrefix[T interface{ Close() error }](prefix string, m cmap.Concurrent
 			detach(k, m)
 		}
 	}
+}
+
+// incompatibleMaps returns the key names MapSpecs in spec with the
+// LIBBPF_PIN_BY_NAME pinning flag that are incompatible with their pinned
+// counterparts. Removes the LIBBPF_PIN_BY_NAME flag. opts.Maps.PinPath must be
+// specified.
+//
+// The slice of strings returned contains the keys used in Collection.Maps and
+// CollectionSpec.Maps, which can differ from the Map's Name field.
+func incompatibleMaps(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions) ([]string, error) {
+	if opts.Maps.PinPath == "" {
+		return nil, errors.New("missing opts.Maps.PinPath")
+	}
+
+	var incompatible []string
+	for key, ms := range spec.Maps {
+		if ms.Pinning != ebpf.PinByName {
+			continue
+		}
+
+		pinPath := path.Join(opts.Maps.PinPath, ms.Name)
+		m, err := ebpf.LoadPinnedMap(pinPath, nil)
+		if errors.Is(err, unix.ENOENT) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("opening map %s from pin: %w", ms.Name, err)
+		}
+
+		if ms.Compatible(m) == nil {
+			m.Close()
+			continue
+		}
+
+		incompatible = append(incompatible, key)
+		ms.Pinning = 0
+	}
+
+	return incompatible, nil
 }
