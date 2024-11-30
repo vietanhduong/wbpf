@@ -534,6 +534,16 @@ func (m *Module) GetProg(name string) (*ebpf.Program, error) {
 	return p, nil
 }
 
+// Programs return all programs in the collection
+func (m *Module) Programs() map[string]*ebpf.Program {
+	return m.collection.Programs
+}
+
+// Maps return all the maps in the collection
+func (m *Module) Maps() map[string]*ebpf.Map {
+	return m.collection.Maps
+}
+
 type ResolveSymbolOptions struct {
 	ShowOffset bool
 	ShowModule bool

@@ -68,7 +68,6 @@ func commitMapPins(pins []toPin) error {
 		if err := pin.m.Pin(pin.path); err != nil {
 			return fmt.Errorf("pinning map to %s: %w", pin.path, err)
 		}
-
 		log.Debugf("Replaced map pin %s", pin.path)
 	}
 
